@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Valdr Orchestrator</title>
+  <desc id="desc">Valdr brand icon for the Valdr Orchestrator skill.</desc>
+  <defs>
+    <clipPath id="clip">
+      <rect x="4" y="4" width="56" height="56" rx="16"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#2563EB"/>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="#fff" opacity=".12"/>
+  <image href="./large-logo.png" x="4" y="4" width="56" height="56" clip-path="url(#clip)" preserveAspectRatio="xMidYMid slice"/>
+</svg>

@@ -1,0 +1,20 @@
+schemaVersion: 1.0
+agent:
+  handle: freya
+  name: Freya VMP Planner
+  kind: bot
+  defaultRole: planner
+  tags:
+    - valdr
+    - planner
+    - vmp
+    - pm
+capabilities:
+  - key: valdr.planner.freya.system
+    role: core
+  - key: valdr.planner.freya.schema
+    role: constraints
+  - key: valdr.planner.freya.tasks
+    role: constraints
+  - key: valdr.planner.freya.research
+    role: workflow

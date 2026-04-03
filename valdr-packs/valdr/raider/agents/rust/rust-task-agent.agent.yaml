@@ -1,0 +1,22 @@
+schemaVersion: 1.0
+agent:
+  handle: rust-task-agent
+  name: Rust Task Agent
+  kind: bot
+  defaultRole: executor
+  tags:
+    - rust
+    - valdr
+    - task-agent
+    - valdr
+capabilities:
+  - key: valdr.agents.rust.rust-task-agent.system
+    role: core
+  - key: valdr.agents.rust.build
+    role: constraints
+  - key: valdr.agents.rust.code.rules
+    role: constraints
+  - key: valdr.agents.rust.design.solid
+    role: workflow
+  - key: valdr.agents.rust.testing
+    role: workflow

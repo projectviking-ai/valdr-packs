@@ -1,0 +1,43 @@
+schemaVersion: 1.0
+agent:
+  handle: task-executor
+  name: Valdr Task Executor
+  kind: bot
+  defaultRole: executor
+  tags:
+    - valdr
+    - executor
+    - task
+capabilities:
+  - key: valdr.executor.task.system
+    role: core
+  - key: valdr.executor.workflow.status-change
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.preflight
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.prior-work
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.handle-resolution
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.checklist
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.self-review
+    role: validation
+    hot-load: true
+  - key: valdr.executor.workflow.completion
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.recovery
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.blocker
+    role: workflow
+    hot-load: true
+  - key: valdr.executor.workflow.review
+    role: workflow
+    hot-load: true

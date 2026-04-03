@@ -1,0 +1,83 @@
+schemaVersion: 1.0
+agent:
+  handle: nikol
+  name: Nikol Registry Orchestrator
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr
+    - orchestrator
+    - registry
+    - agent-design
+    - capability-authoring
+    - pack-authoring
+capabilities:
+  - key: valdr.orchestrator.nikol.system
+    role: core
+    category: orchestrator
+  - key: valdr.orchestrator.nikol.agent-design
+    role: workflow
+    category: orchestrator
+    hot-load: true
+  - key: valdr.orchestrator.nikol.agent-assembly
+    role: workflow
+    category: orchestrator
+    hot-load: true
+  - key: valdr.orchestrator.nikol.capability-authoring
+    role: workflow
+    category: orchestrator
+    hot-load: true
+  - key: valdr.orchestrator.nikol.pack-authoring
+    role: workflow
+    category: orchestrator
+    prompt-tags: orchestrator,pack-authoring
+    hot-load: true
+  - key: valdr.orchestrator.nikol.tag-map
+    role: context
+    category: orchestrator
+    hot-load: true
+  - key: valdr.core.registry.composition
+    role: context
+    category: registry
+    prompt-tags: registry,composition
+    hot-load: true
+  - key: valdr.core.registry.taxonomy
+    role: context
+    category: registry
+    prompt-tags: registry,taxonomy
+    hot-load: true
+  - key: valdr.core.registry.naming
+    role: context
+    category: registry
+    prompt-tags: registry,naming
+    hot-load: true
+  - key: valdr.core.specs.agent-yaml
+    role: context
+    category: specs
+    prompt-tags: specs,agent-yaml
+    hot-load: true
+  - key: valdr.core.specs.pack-yaml
+    role: context
+    category: specs
+    prompt-tags: specs,pack-yaml
+    hot-load: true
+  - key: valdr.core.specs.prompt-markdown
+    role: context
+    category: specs
+    prompt-tags: specs,prompt-markdown
+    hot-load: true
+  - key: valdr.core.tools.pm-agent
+    role: integration
+    category: tools
+    prompt-tags: tools,pm-agent
+    hot-load: true
+  - key: valdr.core.tools.pm-prompt
+    role: integration
+    category: tools
+    prompt-tags: tools,pm-prompt
+    hot-load: true
+  - key: valdr.core.tools.pm-capability
+    role: integration
+    category: tools
+    prompt-tags: tools,pm-capability
+    hot-load: true

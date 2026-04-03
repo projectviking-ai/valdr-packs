@@ -1,0 +1,41 @@
+schemaVersion: 1.0
+agent:
+  handle: gunnar
+  name: Gunnar Orchestrator
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr
+    - orchestrator
+    - pm
+    - navigation
+    - discovery
+    - task-creation
+capabilities:
+  - key: valdr.orchestrator.gunnar.system
+    role: core
+  - key: valdr.orchestrator.gunnar.navigation
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.gunnar.registry
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.gunnar.task-creation
+    role: workflow
+    hot-load: true
+  - key: valdr.core.sizing.ai-story-points
+    role: context
+    hot-load: true
+prompts:
+  - key: valdr-orchestrator-gunnar-template-bug
+    role: guide
+    hot-load: true
+  - key: valdr-orchestrator-gunnar-template-feature
+    role: guide
+    hot-load: true
+  - key: valdr-orchestrator-gunnar-template-spike
+    role: guide
+    hot-load: true
+  - key: valdr-orchestrator-gunnar-template-refactor
+    role: guide
+    hot-load: true

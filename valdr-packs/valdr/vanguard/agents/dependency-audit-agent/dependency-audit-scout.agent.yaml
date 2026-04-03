@@ -1,0 +1,48 @@
+schemaVersion: 1.0
+agent:
+  handle: dependency-audit-scout
+  name: Dependency Audit Scout
+  kind: bot
+  defaultRole: planner
+  tags:
+    - valdr
+    - security
+    - dependency-audit
+    - supply-chain
+    - monorepo
+capabilities:
+  - key: valdr.agents.dependency-audit-agent.dependency-audit-scout.system
+    role: core
+  - key: valdr.agents.dependency-audit-agent.intake-routing
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.vulnerability-reachability
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.unused-detection
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.alignment-analysis
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.compound-findings
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.reporting-scorecard
+    role: validation
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.upgrade-planning
+    role: integration
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.audit-guardrails
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.npm-bun-context
+    role: context
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.cargo-context
+    role: context
+    hot-load: true
+  - key: valdr.agents.dependency-audit-agent.jvm-context
+    role: context
+    hot-load: true

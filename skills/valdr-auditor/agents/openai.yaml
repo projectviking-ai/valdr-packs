@@ -1,0 +1,14 @@
+interface:
+  display_name: "Valdr Auditor"
+  short_description: "Audit Valdr sessions and submit structured scorecards."
+  icon_small: "./assets/small-logo.png"
+  icon_large: "./assets/large-logo.png"
+  brand_color: "#D97706"
+  default_prompt: "Use $valdr-auditor to audit a Valdr session and submit a complete score payload."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "valdr"
+      description: "Valdr PM MCP server"
+      transport: "stdio"

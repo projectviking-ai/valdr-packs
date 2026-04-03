@@ -1,0 +1,21 @@
+schemaVersion: 1.0
+agent:
+  handle: java-task-agent
+  name: Java Task Agent
+  kind: bot
+  defaultRole: executor
+  tags:
+    - java
+    - valdr
+    - task-agent
+capabilities:
+  - key: valdr.agents.java.java-task-agent.system
+    role: core
+  - key: valdr.agents.java.build
+    role: constraints
+  - key: valdr.agents.java.code.rules
+    role: constraints
+  - key: valdr.agents.java.design.solid
+    role: workflow
+  - key: valdr.agents.java.testing
+    role: workflow

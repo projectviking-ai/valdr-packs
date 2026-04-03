@@ -1,0 +1,54 @@
+schemaVersion: 1.0
+agent:
+  handle: infra-agent
+  name: Infrastructure-as-Code Agent
+  kind: bot
+  defaultRole: executor
+  tags:
+    - valdr
+    - infrastructure
+    - terraform
+    - opentofu
+    - kubernetes
+    - cloud
+    - devops
+capabilities:
+  - key: valdr.agents.infra.infra-agent.system
+    role: core
+    category: system
+  - key: valdr.agents.infra.terraform
+    role: context
+    category: tooling
+  - key: valdr.agents.infra.containers
+    role: context
+    category: tooling
+  - key: valdr.agents.infra.cloud-patterns
+    role: context
+    category: architecture
+  - key: valdr.agents.infra.networking
+    role: context
+    category: architecture
+  - key: valdr.agents.infra.observability
+    role: context
+    category: operations
+  - key: valdr.agents.infra.diagrams
+    role: context
+    category: architecture
+  - key: valdr.agents.infra.incident-triage
+    role: workflow
+    category: operations
+prompts:
+  - key: valdr-agents-infra-gcloud-cheatsheet
+    role: context
+  - key: valdr-agents-infra-aws-cheatsheet
+    role: context
+  - key: valdr-agents-infra-cloudflare-cheatsheet
+    role: context
+  - key: valdr-agents-infra-azure-cheatsheet
+    role: context
+  - key: valdr-agents-infra-vercel-cheatsheet
+    role: context
+  - key: valdr-agents-infra-flyio-cheatsheet
+    role: context
+  - key: valdr-agents-infra-digitalocean-cheatsheet
+    role: context

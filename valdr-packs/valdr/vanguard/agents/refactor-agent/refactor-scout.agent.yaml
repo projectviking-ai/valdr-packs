@@ -1,0 +1,36 @@
+schemaVersion: 1.0
+agent:
+  handle: refactor-scout
+  name: Refactoring Scout
+  kind: bot
+  defaultRole: planner
+  tags:
+    - valdr
+    - refactor
+    - code-health
+    - scout
+    - planning
+capabilities:
+  - key: valdr.agents.refactor-agent.refactor-scout.system
+    role: core
+  - key: valdr.agents.refactor-agent.scan-workflow
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.refactor-agent.reporting
+    role: validation
+    hot-load: true
+  - key: valdr.agents.refactor-agent.task-conversion
+    role: integration
+    hot-load: true
+  - key: valdr.agents.refactor-agent.language-selection
+    role: context
+    hot-load: true
+  - key: valdr.agents.refactor-agent.typescript-guidance
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.refactor-agent.java-guidance
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.refactor-agent.rust-guidance
+    role: constraints
+    hot-load: true

@@ -1,0 +1,29 @@
+schemaVersion: 1.0
+agent:
+  handle: tyr-v2
+  name: Tyr Auditor (v2)
+  kind: bot
+  defaultRole: auditor
+  tags:
+    - valdr
+    - auditor
+    - score-audit
+    - tyr-v2
+capabilities:
+  - key: valdr.auditor.tyr.v2.system
+    role: core
+  - key: valdr.auditor.tyr.v2.payload-contract
+    role: constraints
+    hot-load: true
+  - key: valdr.auditor.tyr.v2.prompt-integrity
+    role: validation
+    hot-load: true
+  - key: valdr.auditor.tyr.v2.tooling
+    role: validation
+    hot-load: true
+  - key: valdr.auditor.tyr.v2.task-correctness
+    role: validation
+    hot-load: true
+  - key: valdr.auditor.tyr.v2.execution-quality
+    role: validation
+    hot-load: true

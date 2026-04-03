@@ -1,0 +1,22 @@
+schemaVersion: 1.0
+agent:
+  handle: python-task-agent
+  name: Python Task Agent
+  kind: bot
+  defaultRole: executor
+  tags:
+    - python
+    - valdr
+    - task-agent
+    - valdr
+capabilities:
+  - key: valdr.agents.python.python-task-agent.system
+    role: core
+  - key: valdr.agents.python.build
+    role: constraints
+  - key: valdr.agents.python.code.rules
+    role: constraints
+  - key: valdr.agents.python.design.solid
+    role: workflow
+  - key: valdr.agents.python.testing
+    role: workflow
