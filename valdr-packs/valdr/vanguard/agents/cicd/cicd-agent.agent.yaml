@@ -1,0 +1,33 @@
+schemaVersion: 1.0
+agent:
+  handle: cicd-agent
+  name: CI/CD Pipeline Agent
+  kind: bot
+  defaultRole: executor
+  tags:
+    - valdr
+    - cicd
+    - github-actions
+    - pipelines
+    - deployment
+    - devops
+capabilities:
+  - key: valdr.agents.cicd.cicd-agent.system
+    role: core
+    category: system
+  - key: valdr.agents.cicd.github-actions
+    role: context
+    category: tooling
+    hot-load: true
+  - key: valdr.agents.cicd.pipeline-patterns
+    role: context
+    category: architecture
+    hot-load: true
+  - key: valdr.agents.cicd.deployment-strategies
+    role: workflow
+    category: orchestration
+    hot-load: true
+  - key: valdr.agents.cicd.quality-gates
+    role: validation
+    category: policy
+    hot-load: true

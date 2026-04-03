@@ -1,0 +1,29 @@
+schemaVersion: 1.0
+agent:
+  handle: security-audit-agent
+  name: Security Audit Agent
+  kind: bot
+  defaultRole: reviewer
+  tags:
+    - valdr
+    - security
+    - audit
+    - vulnerability
+    - compliance
+    - reviewer
+capabilities:
+  - key: valdr.agents.security.security-audit-agent.system
+    role: core
+    category: system
+  - key: valdr.agents.security.vulnerability-patterns
+    role: constraints
+    category: policy
+  - key: valdr.agents.security.dependency-audit
+    role: validation
+    category: scanning
+  - key: valdr.agents.security.secrets-detection
+    role: validation
+    category: scanning
+  - key: valdr.agents.security.compliance
+    role: constraints
+    category: policy

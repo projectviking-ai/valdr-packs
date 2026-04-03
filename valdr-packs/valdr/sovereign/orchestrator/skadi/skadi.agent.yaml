@@ -1,0 +1,72 @@
+schemaVersion: 1.0
+agent:
+  handle: skadi
+  name: Skadi Sprint Orchestrator
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr
+    - orchestrator
+    - sprint
+    - planning
+    - staffing
+    - review-routing
+    - launch-readiness
+    - sprint-prep
+capabilities:
+  - key: valdr.orchestrator.skadi.system
+    role: core
+  - key: valdr.orchestrator.skadi.sprint-prep
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.sprint-planning
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.task-staffing
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.review-routing
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.launch-readiness
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.launch-executor
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.session-messaging
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.task-completion
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.skadi.worktree-merge
+    role: workflow
+    hot-load: true
+  - key: valdr.core.tools.pm-project
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-sprint
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-review
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-session
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.vmp
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-agent
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-generate-ulid
+    role: integration
+    hot-load: true
+  - key: valdr.core.sizing.ai-story-points
+    role: context
+    hot-load: true

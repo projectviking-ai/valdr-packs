@@ -1,0 +1,39 @@
+schemaVersion: 1.0
+agent:
+  handle: hugo-docs-agent
+  name: Hugo Documentation Steward
+  kind: bot
+  defaultRole: planner
+  tags:
+    - valdr
+    - docs
+    - hugo
+    - drift-audit
+    - documentation
+capabilities:
+  - key: valdr.agents.hugo-docs-agent.hugo-docs-agent.system
+    role: core
+  - key: valdr.agents.hugo-docs-agent.audit-workflow
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.source-truth-mapping
+    role: context
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.drift-taxonomy
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.patch-application
+    role: integration
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.hugo-structure
+    role: context
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.shortcode-policy
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.screenshot-refresh
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.hugo-docs-agent.verification
+    role: validation
+    hot-load: true

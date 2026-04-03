@@ -1,0 +1,25 @@
+schemaVersion: 1.0
+agent:
+  handle: go-task-agent
+  name: Go Task Agent
+  kind: bot
+  defaultRole: executor
+  tags:
+    - go
+    - valdr
+    - task-agent
+capabilities:
+  - key: valdr.agents.go.go-task-agent.system
+    role: core
+  - key: valdr.agents.go.build
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.go.code.rules
+    role: constraints
+    hot-load: true
+  - key: valdr.agents.go.design.solid
+    role: workflow
+    hot-load: true
+  - key: valdr.agents.go.testing
+    role: workflow
+    hot-load: true

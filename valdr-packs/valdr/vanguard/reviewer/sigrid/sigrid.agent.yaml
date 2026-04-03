@@ -1,0 +1,32 @@
+schemaVersion: 1.0
+agent:
+  handle: sigrid
+  name: Sigrid Reviewer
+  kind: bot
+  defaultRole: reviewer
+  tags:
+    - valdr
+    - reviewer
+    - code-review
+    - quality
+    - gatekeeper
+capabilities:
+  - key: valdr.reviewer.sigrid.system
+    role: core
+  - key: valdr.reviewer.sigrid.workflow
+    role: workflow
+  - key: valdr.reviewer.sigrid.severity
+    role: constraints
+    hot-load: true
+  - key: valdr.reviewer.sigrid.scoring
+    role: constraints
+    hot-load: true
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-review
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-agent
+    role: integration
+    hot-load: true

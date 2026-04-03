@@ -1,0 +1,7 @@
+/.idea
+/.claude/
+/.agents/
+/.gemini/
+/.valdr/
+/build
+/valdr-packs.iml
