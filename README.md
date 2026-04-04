@@ -173,6 +173,9 @@ Full orchestration tier.
 | `sync-skills-codex` | Alias for `sync-skills-agent` (Codex now uses `~/.agents/`) |
 | `sync-skills-gemini` | Sync skills to `~/.gemini/skills/` |
 | `sync-skills-agent` | Sync skills to `~/.agents/skills/` |
+| `validate-valdr-pack` | Stage and validate all three Valdr tier pack roots |
+| `test-scripts` | Run the repository script test suite |
+| `ci-validate` | Run pack validation plus script tests |
 | `generate-valdr-pack` | Run the generic pack archive generator |
 | `build-valdr-raider` | Build the Raider tier archive |
 | `build-valdr-vanguard` | Build the Vanguard tier archive |
@@ -203,6 +206,31 @@ Default tier outputs are:
 - `build/valdr-sovereign.valdr-pack.tar.gz`
 
 Archives are directly consumable by Valdr's preflight/commit import flow.
+
+### Release Version
+
+The pack-set release version lives in the root [`VERSION`](VERSION) file.
+
+```bash
+# Bump the checked-in release version
+node scripts/bump-version.mjs patch
+node scripts/bump-version.mjs minor
+node scripts/bump-version.mjs major
+node scripts/bump-version.mjs 1.2.0
+```
+
+All three tier archives share that version, and the release workflow publishes them under a matching GitHub Release tag such as `v0.1.0`.
+
+### CI Automation
+
+- Pull requests and non-`main` branch pushes run pack validation and script tests through `.github/workflows/validate.yml`
+- Pushes to `main` run the same validation, build all three tier archives, and publish them to a GitHub Release through `.github/workflows/release.yml`
+
+For local verification:
+
+```bash
+make ci-validate
+```
 
 ## Creating Your Own Pack
 

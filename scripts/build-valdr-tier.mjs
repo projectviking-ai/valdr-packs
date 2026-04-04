@@ -120,7 +120,7 @@ const ensureIncludedPathsExist = async (packDir, includes) => {
   }
 };
 
-const buildTier = async ({ tier, output, exportedAt }) => {
+export const buildTier = async ({ tier, output, exportedAt }) => {
   const tierConfig = VALDR_TIER_CONFIG[tier];
   if (!tierConfig) {
     throw new Error(`Unknown tier '${tier}'. Expected one of: ${VALDR_TIERS.join(", ")}.`);
