@@ -1,5 +1,7 @@
+import { readRepoVersion } from "./version.mjs";
+
 export const VALDR_PACK_KEY = "valdr";
-export const VALDR_PACK_VERSION = "0.1.0";
+export const VALDR_PACK_VERSION = readRepoVersion();
 export const VALDR_TIER_SOURCE_ROOT = "valdr-packs/valdr";
 export const VALDR_TIER_SOURCE_SYSTEM = "valdr-pack/scripts/build-valdr-tier";
 

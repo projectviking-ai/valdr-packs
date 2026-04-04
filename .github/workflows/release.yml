@@ -1,0 +1,54 @@
+name: Release Packs
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Read repository version
+        id: version
+        run: echo "value=$(tr -d '\n' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if release tag already exists
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists." >&2
+            exit 1
+          fi
+
+      - name: Validate packs and run script tests
+        run: make ci-validate
+
+      - name: Build release archives
+        run: make build-valdr-all
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          gh release create "v${VERSION}" \
+            build/valdr-raider.valdr-pack.tar.gz \
+            build/valdr-vanguard.valdr-pack.tar.gz \
+            build/valdr-sovereign.valdr-pack.tar.gz \
+            --target "${GITHUB_SHA}" \
+            --title "v${VERSION}" \
+            --notes "Valdr pack release v${VERSION}"

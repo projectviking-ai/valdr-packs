@@ -6,8 +6,27 @@ Build and packaging scripts for `valdr-packs`.
 
 | Script | Description | Input | Output |
 |--------|-------------|-------|--------|
+| `bump-version.mjs` | Bump or set the repo release version stored in `VERSION` | `patch` / `minor` / `major` / explicit semver | updated `VERSION` |
 | `build-valdr-tier.mjs` | Assemble a Valdr tier from layered source and invoke the generic archive generator | `valdr-packs/valdr/<layer>/` + tier config | `build/valdr-<tier>.valdr-pack.tar.gz` |
 | `generate-valdr-pack.mjs` | Build an importable `.valdr-pack.tar.gz` from a concrete pack directory | `<pack-dir>/pack.yaml` + includes | `build/<pack>.valdr-pack.tar.gz` |
+| `validate-valdr-pack.mjs` | Stage and validate the concrete Raider/Vanguard/Sovereign pack roots | optional tier names | console report + exit status |
+
+## Version Source
+
+The canonical release version for this repository lives in the root `VERSION` file. Scripts that need the release version should read it through `scripts/lib/version.mjs` rather than hardcoding values in multiple places.
+
+## bump-version.mjs
+
+Updates the root `VERSION` file using semantic version increments or an explicit version.
+
+### Usage
+
+```bash
+node scripts/bump-version.mjs patch
+node scripts/bump-version.mjs minor
+node scripts/bump-version.mjs major
+node scripts/bump-version.mjs 1.2.0
+```
 
 ## build-valdr-tier.mjs
 
@@ -35,6 +54,27 @@ node scripts/build-valdr-tier.mjs sovereign --exported-at 1730000000000
 - `sovereign` = `shared + raider + vanguard + sovereign`
 
 The wrapper materializes `build/staging/<tier>/valdr`, writes a generated `pack.yaml` with canonical `pack: "valdr"`, and then delegates to `generate-valdr-pack.mjs`.
+
+## validate-valdr-pack.mjs
+
+Stages and validates the concrete pack roots that this repository actually ships.
+
+### Usage
+
+```bash
+# Validate all tiers
+node scripts/validate-valdr-pack.mjs
+
+# Validate specific tiers
+node scripts/validate-valdr-pack.mjs raider
+node scripts/validate-valdr-pack.mjs vanguard sovereign
+```
+
+### Notes
+
+- Validation is self-contained in this repository and does not depend on the sibling `valdr` repository.
+- Each tier is staged under `build/staging/<tier>/valdr` before validation.
+- Warnings are reported, but only validation errors produce a non-zero exit code.
 
 ## generate-valdr-pack.mjs
 

@@ -1,6 +1,8 @@
 SHELL := /bin/sh
 
-.PHONY: help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-all
+SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs
+
+.PHONY: help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-all
 
 help:
 	@echo "Targets:"
@@ -11,6 +13,9 @@ help:
 	@echo "  sync-skills-claude   Sync skills to ~/.claude/skills/"
 	@echo "  sync-skills-codex    Sync skills to ~/.agents/skills/ (alias for sync-skills-agent)"
 	@echo "  sync-skills-gemini   Sync skills to ~/.gemini/skills/"
+	@echo "  validate-valdr-pack  Stage and validate the Raider/Vanguard/Sovereign pack roots"
+	@echo "  test-scripts         Run the repository script test suite"
+	@echo "  ci-validate          Run pack validation plus script tests"
 	@echo "  generate-valdr-pack  Run the generic pack archive generator"
 	@echo "  build-valdr-raider   Build the Raider valdr tier archive"
 	@echo "  build-valdr-vanguard Build the Vanguard valdr tier archive"
@@ -79,6 +84,14 @@ sync-skills-gemini:
 	else \
 		echo "No skills/valdr-* found; nothing to sync."; \
 	fi
+
+validate-valdr-pack:
+	@node scripts/validate-valdr-pack.mjs
+
+test-scripts:
+	@$(SCRIPT_TESTS)
+
+ci-validate: validate-valdr-pack test-scripts
 
 generate-valdr-pack:
 	@node scripts/generate-valdr-pack.mjs
