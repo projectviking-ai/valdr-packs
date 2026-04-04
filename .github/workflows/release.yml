@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - skills/**
+      - commands/**
+      - valdr-packs/**
+      - scripts/**
+      - VERSION
+      - .github/workflows/release.yml
 
 permissions:
   contents: write

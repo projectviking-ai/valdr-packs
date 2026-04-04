@@ -224,7 +224,8 @@ All three tier archives share that version, and the release workflow publishes t
 ### CI Automation
 
 - Pull requests and non-`main` branch pushes run pack validation and script tests through `.github/workflows/validate.yml`
-- Pushes to `main` run the same validation, build all three tier archives, and publish them to a GitHub Release through `.github/workflows/release.yml`
+- Pushes to `main` only trigger `.github/workflows/release.yml` when release-affecting files change: `skills/`, `commands/`, `valdr-packs/`, `scripts/`, `VERSION`, or the release workflow itself
+- When it runs, the release workflow validates the repo, builds all three tier archives, and publishes them to a GitHub Release
 
 For local verification:
 
