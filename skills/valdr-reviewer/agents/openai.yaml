@@ -1,10 +1,10 @@
 interface:
   display_name: "Valdr Reviewer"
-  short_description: "Run Valdr review flow, scoring, and verification gates."
+  short_description: "Run Valdr review flow, lightweight review scoring, and verification gates."
   icon_small: "./assets/small-logo.png"
   icon_large: "./assets/large-logo.png"
   brand_color: "#DC2626"
-  default_prompt: "Use $valdr-reviewer to run a Valdr review, assign or resolve reviewer context, and score the task."
+  default_prompt: "Use $valdr-reviewer to run a Valdr review, assign or resolve reviewer context, and record a lightweight review score."
 
 dependencies:
   tools:

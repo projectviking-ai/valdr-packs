@@ -1,6 +1,6 @@
 ---
 name: valdr-auditor
-description: "Use when auditing a Valdr session, evaluating agent work, scoring a session, or reviewing task execution quality."
+description: "Use when auditing a Valdr session, evaluating agent work, recording an audit score run, or reviewing task execution quality."
 metadata:
   version: 1.1.0
 compatibility: Requires Valdr MCP server with PM MCP tools enabled.
@@ -79,5 +79,5 @@ Hot-load any workflows or references it calls for, and do not prefer stale wrapp
 | Task Type | Skill | Description |
 |-----------|-------|-------------|
 | Orchestrator routing | valdr-orchestrator | Navigation, registry operations, and sprint routing |
-| Code reviews | valdr-reviewer | Review workflow, scoring, verification |
+| Code reviews | valdr-reviewer | Review workflow, lightweight review scores, verification |
 | Task execution | valdr-executor | Running, implementing, or completing tasks |

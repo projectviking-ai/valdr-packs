@@ -1,7 +1,7 @@
 <!--<capability id="valdr.core.tools.pm-audit" pack="valdr" role="integration">-->
 # Tool: pm_audit
 
-Auditor workflow operations.
+Auditor workflow operations. Use this tool for audit evidence retrieval and persisted audit score runs.
 
 <!--<instructions>-->
 
@@ -12,8 +12,8 @@ Auditor workflow operations.
 | `launch` | Launch auditor attached to scored session worktree | `taskKey`, `sourceSessionUlid`, `clientRequestId` |
 | `context` | Load compact audit metadata and capability inventory | `sessionUlid` |
 | `events` | Load paginated audit evidence events | `sessionUlid` |
-| `score` | Submit score-audit payload | `scorePayload` |
-| `score_list` | List stored score runs | — |
+| `score` | Submit score-run payload | `scorePayload` |
+| `score_list` | List stored audit score runs | — |
 | `help` | Show tool help | — |
 
 ## Usage Patterns
@@ -73,6 +73,7 @@ pm_audit {
 
 - Use `context` before `events` so auditors do not pull oversized payloads by default.
 - Use `scoreTemplate` from `context` as the starting scaffold for `score`.
+- `score` persists an audit score run; it does not update task review scores.
 - Treat `capabilitiesDeclared` as the capability inventory source of truth.
 - Use `capabilitiesAttached` for low-level binding metadata.
 - Use `promptCapabilitiesParsed` only as optional prompt diagnostics when available.
