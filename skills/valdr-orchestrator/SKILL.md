@@ -79,5 +79,5 @@ Hot-load any workflows or tool docs it references as needed.
 |-----------|-------|-------------|
 | Task execution | valdr-executor | Running, implementing, or completing tasks |
 | Feature planning | valdr-planner | VMP markdown plans, specs, requirements |
-| Code reviews | valdr-reviewer | Review workflow, scoring, verification |
-| Session auditing | valdr-auditor | Audit workflow, scoring, and execution quality |
+| Code reviews | valdr-reviewer | Review workflow, lightweight review scores, verification |
+| Session auditing | valdr-auditor | Audit workflow, score runs, and execution quality |

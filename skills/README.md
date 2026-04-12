@@ -6,11 +6,11 @@ Skills for operating the Valdr PM MCP server. Each skill is a focused instructio
 
 | Skill | Description | Entrypoint |
 |-------|-------------|------------|
-| `valdr-auditor` | Session auditing: evaluate agent work, score submissions | `valdr-auditor/SKILL.md` |
+| `valdr-auditor` | Session auditing: evaluate agent work and persist audit score runs | `valdr-auditor/SKILL.md` |
 | `valdr-executor` | Task execution: fetch tasks, execute work, update checklists | `valdr-executor/SKILL.md` |
 | `valdr-orchestrator` | Unified orchestrator routing across PM navigation, registry, and sprint workflows | `valdr-orchestrator/SKILL.md` |
 | `valdr-planner` | VMP structured planning: plans, specs, requirements, tasks | `valdr-planner/SKILL.md` |
-| `valdr-reviewer` | Code review workflow: reviews, scoring, verification gate | `valdr-reviewer/SKILL.md` |
+| `valdr-reviewer` | Code review workflow: reviews, lightweight review scoring, verification gate | `valdr-reviewer/SKILL.md` |
 
 ## Skill Selection Guide
 
@@ -36,7 +36,7 @@ Skills for operating the Valdr PM MCP server. Each skill is a focused instructio
 | Define requirements | valdr-planner |
 | Generate tasks from plans | valdr-planner |
 | Start/manage reviews | valdr-reviewer |
-| Record review scores | valdr-reviewer |
+| Record lightweight review scores | valdr-reviewer |
 | Verify task completion | valdr-reviewer |
 
 ## Skill Structure

@@ -114,7 +114,8 @@ Do not pre-load workflows speculatively. Load the next one when the current work
 | `pm_project` | Project CRUD, comments |
 | `pm_task` | Task CRUD, status, checklists, comments, history |
 | `pm_sprint` | Sprint lifecycle, hierarchy, task linkage, cross-project read-only query |
-| `pm_review` | Review lifecycle, scoring, verification |
+| `pm_review` | Review lifecycle, lightweight review scores, verification |
+| `pm_audit` | Audit evidence and audit score runs |
 | `pm_agent` | Agent registry |
 | `pm_prompt` | Prompt registry |
 | `pm_capability` | Capability registry, hot-load prompts |

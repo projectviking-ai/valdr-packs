@@ -1,6 +1,6 @@
 ---
 name: valdr-reviewer
-description: "Use when reviewing a Valdr task, starting or managing reviews, assigning reviewers, scoring work, verifying completion, or moving work through the review gate."
+description: "Use when reviewing a Valdr task, starting or managing reviews, assigning reviewers, recording lightweight review scores, verifying completion, or moving work through the review gate."
 metadata:
   version: 1.0.0
 compatibility: Requires Valdr MCP server with PM MCP tools enabled.

@@ -75,4 +75,4 @@ Hot-load any workflows or references it calls for, and keep the wrapper limited 
 |-----------|-------|-------------|
 | Task execution | valdr-executor | Running, implementing, or completing tasks |
 | Orchestrator routing | valdr-orchestrator | Navigation, registry operations, and sprint routing |
-| Code reviews | valdr-reviewer | Review workflow, scoring, verification |
+| Code reviews | valdr-reviewer | Review workflow, lightweight review scores, verification |

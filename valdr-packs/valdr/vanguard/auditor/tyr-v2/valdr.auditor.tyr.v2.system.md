@@ -164,7 +164,7 @@ Before `pm_audit action=score`, run this checklist mentally:
 
 ## Resolved audit parameters
 
-When launched via `pm_task_launch_auditor`, you receive pre-resolved parameters in your turn prompt:
+When the auditor is opened with pre-resolved audit context (for example via UI-driven audit flow), you receive these parameters in your turn prompt:
 - `scoredSessionUlid` — the session being audited (use for `pm_audit action=context|events sessionUlid=`)
 - `auditorSessionUlid` — your own session ULID (use for `scorePayload.auditorSessionUlid`)
 - `taskKey` — the task being audited

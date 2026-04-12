@@ -75,8 +75,8 @@ Skills teach agents specialized knowledge. They activate automatically when the 
 |-------|---------|---------|
 | **valdr-executor** | User asks to execute, run, or complete a task | Fetch tasks, execute work, update checklists, change status |
 | **valdr-planner** | Work needs structure, requirements, or stakeholder visibility | VMP structured planning with specs and task generation |
-| **valdr-reviewer** | User asks to review a task, score work, or verify completion | Code review workflow, scoring, verification gate |
-| **valdr-auditor** | User asks to audit a session or evaluate agent work | Session evaluation, quality scoring, evidence-backed verdicts |
+| **valdr-reviewer** | User asks to review a task, record review scores, or verify completion | Code review workflow, lightweight review scoring, verification gate |
+| **valdr-auditor** | User asks to audit a session or evaluate agent work | Session evaluation, audit score runs, evidence-backed verdicts |
 | **valdr-orchestrator** | User needs PM navigation, registry operations, or sprint orchestration | Route work through Gunnar, Nikol, or Skadi and follow the selected orchestrator prompt |
 
 ### Commands vs Skills

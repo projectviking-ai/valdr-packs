@@ -1,7 +1,7 @@
 <!--<capability id="valdr.core.tools.pm-review" pack="valdr" role="integration">-->
 # Tool: pm_review
 
-Task review management operations. Auditor workflows live in `pm_audit`.
+Task review management operations. Use this tool for review lifecycle and lightweight review scores. Auditor workflows and score runs live in `pm_audit`.
 
 <!--<instructions>-->
 
@@ -19,6 +19,9 @@ Task review management operations. Auditor workflows live in `pm_audit`.
 | `get_prompt` | Get reviewer prompt | `taskKey` |
 | `launch_reviewer` | Launch AI reviewer attached to executor worktree | `taskKey`, `sourceSessionUlid`, `clientRequestId` |
 | `statuses` | List valid statuses | — |
+| `score_record` | Record lightweight review score | `taskKey`, `scoredHandle`, `score` |
+| `score_list` | List lightweight review scores for task | `taskKey` |
+| `help` | Show tool help | — |
 
 ## Usage Patterns
 
@@ -132,6 +135,8 @@ pending → in_progress → approved | changes_requested
 | `reject` | Major blockers, reject |
 
 ## Scoring Guidance
+
+These ranges apply to lightweight review scores recorded on the task review record. They are not audit score runs.
 
 | Score Range | Confidence Level |
 |-------------|------------------|
