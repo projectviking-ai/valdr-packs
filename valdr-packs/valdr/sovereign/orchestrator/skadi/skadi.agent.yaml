@@ -13,6 +13,8 @@ agent:
     - review-routing
     - launch-readiness
     - sprint-prep
+    - knowledge
+    - agent-memory
 capabilities:
   - key: valdr.orchestrator.skadi.system
     role: core
@@ -43,6 +45,9 @@ capabilities:
   - key: valdr.orchestrator.skadi.worktree-merge
     role: workflow
     hot-load: true
+  - key: valdr.core.knowledge.memory-append
+    role: workflow
+    hot-load: true
   - key: valdr.core.tools.pm-project
     role: integration
     hot-load: true
@@ -56,6 +61,9 @@ capabilities:
     role: integration
     hot-load: true
   - key: valdr.core.tools.pm-session
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-knowledge
     role: integration
     hot-load: true
   - key: valdr.core.tools.vmp
