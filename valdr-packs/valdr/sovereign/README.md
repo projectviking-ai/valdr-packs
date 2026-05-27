@@ -9,7 +9,10 @@ node scripts/build-valdr-tier.mjs sovereign
 ## What Sovereign Adds
 
 - `pm_session` tool documentation
+- `pm_knowledge` tool documentation and shared knowledge workflows
 - Skadi orchestration workflows
+- Mimir knowledge orchestration workflows
+- Sovereign Nikol agent-memory notebook bindings
 - Session-aware Gunnar guidance
 - Session-aware Sigrid review handoff
 - Session-aware executor review routing
@@ -21,6 +24,7 @@ Sovereign is the only tier that includes:
 
 - Session spawning
 - Session messaging
+- Knowledge source curation, ingest health, search, code-map, and agent memory workflows
 - Launch-time reviewer orchestration
 - Worktree-aware sprint and merge flows
 

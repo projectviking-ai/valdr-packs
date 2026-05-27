@@ -1,0 +1,53 @@
+schemaVersion: 1.0
+agent:
+  handle: mimir
+  name: Mimir Knowledge Orchestrator
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr
+    - sovereign
+    - orchestrator
+    - knowledge
+    - search
+    - code-map
+    - memory
+capabilities:
+  - key: valdr.orchestrator.mimir.system
+    role: core
+  - key: valdr.orchestrator.mimir.source-curation
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.mimir.ingest-health
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.mimir.search-retrieval
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.mimir.code-mapping
+    role: workflow
+    hot-load: true
+  - key: valdr.orchestrator.mimir.knowledge-capture
+    role: workflow
+    hot-load: true
+  - key: valdr.core.knowledge.search
+    role: workflow
+    hot-load: true
+  - key: valdr.core.knowledge.code-map
+    role: workflow
+    hot-load: true
+  - key: valdr.core.knowledge.memory-append
+    role: workflow
+    hot-load: true
+  - key: valdr.core.knowledge.record-snapshot
+    role: workflow
+    hot-load: true
+  - key: valdr.core.tools.pm-knowledge
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-project
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-generate-ulid
+    role: integration
+    hot-load: true
