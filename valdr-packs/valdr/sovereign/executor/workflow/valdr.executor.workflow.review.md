@@ -98,14 +98,14 @@ pm_review { action: "list", taskKey: "{{taskKey}}" }
    Use the most recent candidate. **Session status does not matter** — `pm_session input` wakes up and resumes closed/idle sessions.
    Only if no reviewer session exists at all, return to Step 8 in `valdr.executor.workflow` and launch a new one.
 
-9. **Wait for reviewer callback** — the reviewer will message you again with the updated outcome.
+9. **End your turn — do NOT wait or poll.** After re-notifying the reviewer (Step 8), report that fixes are resubmitted and **STOP**. The reviewer re-engages this session via `pm_session input` with the updated outcome; do not loop on `pm_review` or sleep waiting for it.
 
 ## Constraints
 
 - Address ALL feedback items, not just some
 - Post revision summary before resubmitting
 - Run self-review again after revisions
-- Always re-notify the reviewer after fixes — don't just move to `in_review` and wait
+- Always re-notify the reviewer after fixes, then end your turn — don't silently move to `in_review` and sit polling for the result
 
 <!--</instructions>-->
 <!--</capability>-->
