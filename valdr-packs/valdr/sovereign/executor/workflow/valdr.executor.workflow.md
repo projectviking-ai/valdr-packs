@@ -26,7 +26,7 @@ Task execution framework for Valdr PM. Manages lifecycle from pickup to review s
 5. Self-Review      → verify requirements met
 6. Summary          → post completion comment
 7. Submit           → move to in_review
-8. Reviewer Handoff → find reviewer session, re-engage or launch, wait for callback
+8. Reviewer Handoff → find reviewer session, re-engage or launch, then end turn
 ```
 
 ## Step 0: Persona Gate (MANDATORY)
@@ -169,9 +169,12 @@ After moving to `in_review`, check for an assigned reviewer and hand off to an e
 
 5. **Capture the reviewer `sessionUlid` you used** (existing session from Step 3, or launch response from Step 4). You will need this to message the reviewer if changes are requested.
 
-6. **Wait for reviewer callback.** The reviewer will message you via `pm_session input` with the review outcome.
-   - If `approved`: **STOP** — task complete, waiting for verification gate.
-   - If `changes_requested`: hot-load `valdr.executor.workflow.review` and address the feedback. After fixes, re-notify the reviewer (see review workflow).
+6. **Hand off and end your turn — do NOT wait or poll.** Once you have captured the reviewer `sessionUlid` (Step 5), report the handoff and **STOP**. Ending the turn is the correct, final action — `pm_session input` wakes a closed/idle session, so the reviewer re-engages this session itself when the review resolves.
+   - Report: `Handed off {{taskKey}} to reviewer <reviewerHandle> (session <reviewer-session-ulid>). Ending turn — the reviewer will re-engage this session via pm_session input with the outcome.`
+   - **Do NOT** call `pm_review` in a loop, sleep, or otherwise wait for the result. There is nothing left to do this turn.
+   - When the reviewer later re-engages this session via `pm_session input`:
+     - If `approved`: acknowledge and **STOP** — task complete, waiting for the verification gate.
+     - If `changes_requested`: hot-load `valdr.executor.workflow.review` and address the feedback.
 
 If reviewer handoff fails (cannot resolve executor session, `pm_session input` fails, or `pm_review launch_reviewer` fails), **STOP** and report the error. Fall back to orchestrator-mediated review.
 
@@ -198,6 +201,7 @@ If reviewer handoff fails (cannot resolve executor session, `pm_session input` f
 - Never move tasks to `verified` or `done`
 - Never start another task without user direction
 - Always re-engage an existing reviewer session first (even if closed — `input` wakes it up); launch only when no reviewer session exists at all
+- After reviewer handoff, **end your turn** — never poll `pm_review` or wait for the result; the reviewer re-engages this session via `pm_session input` with the outcome
 
 ## Completion Gate Checklist (MANDATORY)
 
