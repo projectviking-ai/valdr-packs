@@ -93,6 +93,7 @@ pm_audit {
 - Use `promptCapabilitiesParsed` only as optional prompt diagnostics when available.
 - `events` pages omit raw `payloadJson` by default; opt in only for targeted deep inspection.
 - Use `events` evidence excerpts or worktree artifacts; transcript-only scoring is forbidden.
+- **Sovereign launch boundary** — Sovereign includes live `launch`; attach auditor launches to the scored session worktree with `sourceSessionUlid`. Lower tiers expose audit evidence and scoring without live auditor launch.
 
 <!--</instructions>-->
 <!--</capability>-->

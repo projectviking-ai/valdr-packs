@@ -12,8 +12,10 @@ Task review management operations. Use this tool for review lifecycle and lightw
 | `start` | Create review request | `taskKey`, `reviewerHandles`, `actorHandle`, `clientRequestId` |
 | `list` | List reviews for task | `taskKey` |
 | `delete` | Remove review | `reviewId` |
+| `update_assignment` | Update reviewer assignment status | `reviewId`, `assignmentId`, `status` |
 | `comment` | Add review comment | `taskKey`, `body`, `actorHandle`, `clientRequestId` |
 | `comment_list` | List review comments | `taskKey` |
+| `comment_delete` | Delete review comment | `taskKey`, `commentId` |
 | `publish` | Submit review with score | `taskKey`, `body`, `actorHandle`, `scoredHandle`, `score`, `clientRequestId` |
 | `verify_ready` | Check if task can be verified | `taskKey` |
 | `get_prompt` | Get reviewer prompt | `taskKey` |
@@ -79,7 +81,7 @@ pm_review {
   scoredHandle: "implementer-handle",
   score: 85,
   status: "approved",
-  recommendation: "ready_for_sign_off",
+  recommendation: "ready",
   clientRequestId: "<ulid>"
 }
 ```
@@ -107,8 +109,8 @@ pending → in_progress → approved | changes_requested
 
 | Value | When to Use |
 |-------|-------------|
-| `ready_for_sign_off` | No blocking issues, approve |
-| `needs_revision` | Issues found, request changes |
+| `ready` | No blocking issues, approve |
+| `changes_requested` | Issues found, request changes |
 | `reject` | Major blockers, reject |
 
 ## Scoring Guidance
@@ -125,7 +127,7 @@ These ranges apply to lightweight review scores recorded on the task review reco
 ## Key Rules
 
 - **verify_ready before verified** — Always check before moving task to `verified`
-- **Status/recommendation alignment** — `approved` requires `ready_for_sign_off`
+- **Status/recommendation alignment** — Use `ready` for approved outcomes, `changes_requested` for revision requests, and `reject` for major blockers
 - **Fresh ULIDs** — Use unique `clientRequestId` for each mutation
 - **scoredHandle required** — Must specify who is being scored
 - In Vanguard, reviewer follow-up is driven by review state and comments, not live session launch.
