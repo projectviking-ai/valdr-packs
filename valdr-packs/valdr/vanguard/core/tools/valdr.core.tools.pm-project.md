@@ -15,7 +15,7 @@ Project management operations.
 | `update` | Modify project | `key` |
 | `delete` | Remove project | `key` |
 | `comment_create` | Add project comment | `key`, `actor`, `body` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 

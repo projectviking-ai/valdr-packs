@@ -14,7 +14,7 @@ Prompt registry operations.
 | `create` | Create new prompt | `key`, `name`, `role`, `content` |
 | `update` | Modify prompt | `id` |
 | `delete` | Remove prompt | `id` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 

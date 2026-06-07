@@ -16,7 +16,7 @@ Capability registry operations.
 | `delete` | Remove capability | `id` |
 | `ensure` | Upsert capability | `key` |
 | `prompt` | Hot-load linked prompt content for capability | `key` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 

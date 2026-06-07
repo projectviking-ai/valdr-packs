@@ -12,7 +12,7 @@ Valdr Mini-Planner operations.
 | `list_plans` | Find plans with counts and completion metrics | — |
 | `get_plan` | Fetch plan details | `planKey` or `planId` |
 | `commit_markdown` | Create plan from markdown | `markdown`, `idempotencyKey`, `plannerAgentHandle` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 

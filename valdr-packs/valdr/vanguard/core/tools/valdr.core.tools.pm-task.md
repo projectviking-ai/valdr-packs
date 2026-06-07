@@ -22,7 +22,7 @@ Task management operations.
 | `comment_create` | Add task comment | `taskKey`, `body` |
 | `comment_list` | List task comments | `taskKey` |
 | `comment_delete` | Remove comment | `taskKey`, `commentId` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 
