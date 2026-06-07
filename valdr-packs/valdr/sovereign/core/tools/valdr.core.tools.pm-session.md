@@ -18,6 +18,21 @@ Agent session operations.
 | `live_deltas` | Stream session updates | `sessionUlid` |
 | `input` | Send input to session | `sessionUlid`, `prompt` |
 | `launch_task` | Launch task session | `taskKey`, `agentHandle` or `agentId` |
+| `help` | Show tool help | — |
+
+## Help Action Response
+
+`pm_session { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
+The payload is additive: it documents the existing action surface and does not change accepted input schemas. Flat `examples` (an array of `{ action, description, arguments }`) are canonical; some clients expose the same examples under a nested `params` wrapper.
 
 ## Usage Patterns
 
