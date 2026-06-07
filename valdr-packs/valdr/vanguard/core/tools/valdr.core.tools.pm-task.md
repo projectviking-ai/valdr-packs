@@ -13,6 +13,7 @@ Task management operations.
 | `get` | Fetch task details | `taskKey` |
 | `create` | Create new task | `projectKey`, `title` |
 | `update` | Modify task | `taskKey` |
+| `delete` | Delete task | `taskKey` |
 | `plan` | Get linked plan | `taskId` (or `taskKey` if resolvable) |
 | `get_prompt` | Get task execution prompt | `taskKey` |
 | `change_status` | Transition task status | `taskKey`, `to` |
@@ -110,6 +111,15 @@ pm_task {
 pm_task { action: "plan", taskId: "01H..." }
 ```
 
+**Delete task (intentional cleanup only):**
+```
+# Fetch first to confirm you are deleting the right task
+pm_task { action: "get", taskKey: "PROJ-123" }
+
+# Deletion is permanent — reserve for intentional cleanup
+pm_task { action: "delete", taskKey: "PROJ-123" }
+```
+
 ## Task Status Flow
 
 ```
@@ -156,6 +166,7 @@ Use this as the nominal path. Forward skips may be allowed by policy, but backfl
 ## Key Rules
 
 - **Fetch before update** — Always `get` before `update`
+- **Delete is for intentional cleanup only** — Deletion is permanent; `get` to confirm the task first, and reserve `delete` for deliberate cleanup
 - **Sprint membership** — Do not send `sprintId` via `update`; use `pm_sprint` `link_task` / `unlink_task`
 - **Status transitions** — Include `reason` whenever moving backward in the workflow
 - **clientRequestId** — Use fresh ULID for each mutation
