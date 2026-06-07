@@ -9,7 +9,8 @@ Prompt registry operations.
 
 | Action | Purpose | Required Params |
 |--------|---------|-----------------|
-| `list` | Find prompts | — |
+| `list` | Find prompts (metadata only) | — |
+| `list_with_content` | Find prompts including full content | — |
 | `get` | Fetch prompt details | `id` or `key` |
 | `create` | Create new prompt | `key`, `name`, `role`, `content` |
 | `update` | Modify prompt | `id` |
@@ -32,13 +33,23 @@ The payload is additive: it documents the existing action surface and does not c
 
 ## Usage Patterns
 
-**List all prompts:**
+**List all prompts (metadata only):**
 ```
 pm_prompt { action: "list" }
 ```
 
 `list` returns prompt summaries only (`id`, `key`, `role`, `name`, `tags`, `agentCount`).
 It does **not** include `content`.
+
+**List prompts with content:**
+```
+pm_prompt { action: "list_with_content" }
+```
+
+`list_with_content` returns the same summaries **plus** the full `content` of each prompt.
+Reach for it when metadata-only `list` is not enough — for example, scanning the bodies of
+several prompts at once. For a single known prompt, prefer `get`. It accepts the same discovery
+filters as `list` (`roles`, `search`, `limit`).
 
 **Filter by role:**
 ```
@@ -51,6 +62,8 @@ pm_prompt { action: "list", roles: ["checklist"] }
 ```
 pm_prompt { action: "list", search: "review" }
 ```
+
+The `roles`, `search`, and `limit` filters apply equally to `list` and `list_with_content`.
 
 **Get prompt by key (preferred):**
 ```
@@ -123,17 +136,17 @@ pm_prompt {
 
 ## Parameter Reference
 
-| Param | create | get | update | delete | list |
-|-------|--------|-----|--------|--------|------|
-| `key` | required | id OR key | optional | — | — |
-| `id` | — | id OR key | required | required | — |
-| `name` | required | — | optional | — | — |
-| `role` | required | — | optional | — | — |
-| `content` | required | — | optional | — | — |
-| `tags` | optional | — | optional | — | — |
-| `roles` | — | — | — | — | optional |
-| `search` | — | — | — | — | optional |
-| `limit` | — | — | — | — | optional (1-500) |
+| Param | create | get | update | delete | list | list_with_content |
+|-------|--------|-----|--------|--------|------|-------------------|
+| `key` | required | id OR key | optional | — | — | — |
+| `id` | — | id OR key | required | required | — | — |
+| `name` | required | — | optional | — | — | — |
+| `role` | required | — | optional | — | — | — |
+| `content` | required | — | optional | — | — | — |
+| `tags` | optional | — | optional | — | — | — |
+| `roles` | — | — | — | — | optional | optional |
+| `search` | — | — | — | — | optional | optional |
+| `limit` | — | — | — | — | optional (1-500) | optional (1-500) |
 
 ## Prompt Roles
 
@@ -158,7 +171,7 @@ pm_prompt {
 ## Key Rules
 
 - **`key` is required on create** — Do not pass `id` on create; the system generates the id
-- **`list` is metadata-only** — Prompt content is excluded from list responses to keep payloads small
+- **`list` is metadata-only** — Prompt content is excluded from `list` responses to keep payloads small; use `list_with_content` or `get` when content is needed
 - **Get by key or id** — Prefer `key` for readability; use `id` when key is unknown
 - **Role selection** — Choose role based on content purpose
 - **Content quality** — Keep prompts focused and actionable
