@@ -15,7 +15,7 @@ Agent registry operations.
 | `update` | Modify agent | `id` or `handle` |
 | `delete` | Remove agent | `id` |
 | `get_prompt` | Build composed runtime system prompt | `id` or `handle` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 

@@ -18,7 +18,7 @@ Sprint management operations.
 | `delete` | Delete sprint | `sprintId` |
 | `link_task` | Link task membership | `sprintId`, `taskId` |
 | `unlink_task` | Remove task membership | `sprintId`, `taskId` |
-| `help` | Show tool help | — |
+| `help` | Show structured tool help | — |
 
 ## Help Action Response
 
