@@ -63,6 +63,9 @@ capabilities:
   - key: valdr.core.tools.pm-session
     role: integration
     hot-load: true
+  - key: valdr.core.tools.pm-provider
+    role: integration
+    hot-load: true
   - key: valdr.core.tools.pm-knowledge
     role: integration
     hot-load: true
