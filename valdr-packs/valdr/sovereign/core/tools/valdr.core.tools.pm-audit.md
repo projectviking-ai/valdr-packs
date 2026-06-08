@@ -28,7 +28,6 @@ Auditor workflow operations. Use this tool for audit evidence retrieval and pers
 | `cautions` | string[] | Pitfalls and guardrails to respect |
 | `compatibility` | string[] | Notes on schema/behavior stability across versions |
 
-The payload is additive: it documents the existing action surface and does not change accepted input schemas. Flat `examples` (an array of `{ action, description, arguments }`) are canonical; some clients expose the same examples under a nested `params` wrapper.
 
 ## Usage Patterns
 

@@ -31,7 +31,6 @@ Knowledge attachment, ingestion, search, and code-graph navigation. Single MCP t
 | `cautions` | string[] | Pitfalls and guardrails to respect |
 | `compatibility` | string[] | Notes on schema/behavior stability across versions |
 
-The payload is additive: it documents the existing action surface and does not change accepted input schemas.
 
 ## Scopes
 
