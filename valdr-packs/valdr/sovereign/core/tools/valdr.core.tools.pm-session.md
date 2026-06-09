@@ -16,8 +16,27 @@ Agent session operations.
 | `config` | Get session config | `sessionUlid` |
 | `spec` | Get session spec | `sessionUlid` |
 | `live_deltas` | Stream session updates | `sessionUlid` |
-| `input` | Send input to session | `sessionUlid`, `prompt` |
+| `input` | Send input to session (incl. idle/closed sessions that can resume) | `sessionUlid`, `prompt` |
+| `start` | Create a provider-backed session from explicit prompts/config | `clientRequestId`, `actor`, `contextRef`, `role`, `provider`, `systemPrompt` |
+| `run` | Dispatch a turn for a started session | `sessionUlid` |
+| `abort` | Abort an active session's running turn | `sessionUlid` |
+| `restart` | Resume a closed session from prior thread/worktree metadata | `clientRequestId`, `actor` |
+| `purge` | Delete session records and optionally transcript/worktree files | `sessionUlid` |
 | `launch_task` | Launch task session | `taskKey`, `agentHandle` or `agentId` |
+| `help` | Show tool help | — |
+
+## Help Action Response
+
+`pm_session { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
 
 ## Usage Patterns
 
@@ -80,6 +99,52 @@ pm_session {
 }
 ```
 
+> Closed or idle sessions remain valid `input` targets when the launcher supports resume — `input` wakes them rather than requiring a fresh launch.
+
+**Start a session (explicit prompts/config — no task-prompt building):**
+```
+pm_session {
+  action: "start",
+  contextRef: "TASK-PROJ-123",
+  role: "executor",
+  provider: "claude",
+  systemPrompt: "You are ...",
+  actor: "requester-handle",
+  clientRequestId: "<ulid>"
+}
+```
+
+**Dispatch a turn for a started session:**
+```
+pm_session { action: "run", sessionUlid: "<session-id>" }
+```
+
+**Restart (resume) a closed session:**
+```
+pm_session {
+  action: "restart",
+  sessionUlid: "<session-id>",
+  actor: "requester-handle",
+  clientRequestId: "<ulid>",
+  run: true
+}
+```
+
+**Abort an active session's running turn:**
+```
+pm_session { action: "abort", sessionUlid: "<session-id>" }
+```
+
+**Purge a session (preview scope first, then delete artifacts):**
+```
+pm_session { action: "purge", sessionUlid: "<session-id>", dryRun: true }
+pm_session { action: "purge", sessionUlid: "<session-id>", deleteFiles: true }
+```
+
+`dryRun: true` previews the deletion scope without removing anything; `deleteFiles: true` also deletes the session's transcript and worktree artifacts. Omitting `deleteFiles` removes only the session records.
+
+> **`run` action vs `run` parameter — not the same thing.** The `run` *action* (`{ action: "run", sessionUlid }`) dispatches a single turn on an already-started session. The boolean `run` *parameter* on `launch_task` and `restart` (`run: true`) auto-starts the session immediately on creation/resume. One is an action name; the other is an auto-start flag.
+
 ## Session Context Reference
 
 Sessions are linked to tasks via `contextRef`:
@@ -126,6 +191,9 @@ When reviewing, find the worktree from sessions:
 - **Event streaming** — Use `sinceSeq` for incremental updates
 - **Ad-hoc vs standard** — Pass `prompt` to skip capability prompts; omit for full auto-built prompts
 - **Skill-based agents** — When agents use skills like `valdr-executor`, prefer ad-hoc mode to avoid duplicate context
+- **`run` action vs `run` flag** — `action: "run"` dispatches a turn on a started session; `run: true` on `launch_task`/`restart` auto-starts the session on creation/resume
+- **Resume over relaunch** — Closed or idle sessions are still valid `input` targets when the launcher supports resume; wake them instead of launching duplicates
+- **Purge safety** — Preview deletion scope with `dryRun: true`; pass `deleteFiles: true` to also remove transcript/worktree artifacts
 
 <!--</instructions>-->
 <!--</capability>-->

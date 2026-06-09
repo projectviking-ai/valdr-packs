@@ -18,6 +18,20 @@ Knowledge attachment, ingestion, search, and code-graph navigation. Single MCP t
 | `status` | Counters and embedding-model state for a scope | `scope` | No |
 | `help` | Static help payload (no DB access) | — | No |
 
+## Help Action Response
+
+`pm_knowledge { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `queryPatterns` | string[] | Recognized `code_map` query templates, such as `definition of <symbol|FQN>`, `references to <symbol|FQN>`, and `callers of <symbol|FQN>` |
+| `examples` | object | Representative calls grouped by action, such as `{ search: [...], code_map: [...] }`; each example uses `{ action, params: { ... } }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
+
 ## Scopes
 
 | Scope | Meaning | Notes |

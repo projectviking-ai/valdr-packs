@@ -15,6 +15,20 @@ Agent registry operations.
 | `update` | Modify agent | `id` or `handle` |
 | `delete` | Remove agent | `id` |
 | `get_prompt` | Build composed runtime system prompt | `id` or `handle` |
+| `help` | Show structured tool help | — |
+
+## Help Action Response
+
+`pm_agent { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
 
 ## Usage Patterns
 

@@ -16,6 +16,19 @@ Auditor workflow operations. Use this tool for audit evidence retrieval and pers
 | `score_list` | List stored audit score runs | — |
 | `help` | Show tool help | — |
 
+## Help Action Response
+
+`pm_audit { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
+
 ## Usage Patterns
 
 **Launch auditor:**
@@ -79,6 +92,7 @@ pm_audit {
 - Use `promptCapabilitiesParsed` only as optional prompt diagnostics when available.
 - `events` pages omit raw `payloadJson` by default; opt in only for targeted deep inspection.
 - Use `events` evidence excerpts or worktree artifacts; transcript-only scoring is forbidden.
+- **Sovereign launch boundary** — Sovereign includes live `launch`; attach auditor launches to the scored session worktree with `sourceSessionUlid`. Lower tiers expose audit evidence and scoring without live auditor launch.
 
 <!--</instructions>-->
 <!--</capability>-->

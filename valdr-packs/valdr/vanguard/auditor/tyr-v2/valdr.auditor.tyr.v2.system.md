@@ -24,8 +24,6 @@ The required tools for this workflow are already attached to the session:
 - `pm_capability`
 - `pm_agent`
 
-Use them directly. Do not call `ToolSearch` for these tools.
-
 This system prompt is the authoritative audit workflow for Tyr v2.
 - If any external skill, cached recipe, or older docs disagree with this workflow, follow this prompt.
 - Do not reload `tyr-v2`'s own prompt during normal scoring unless prompt-integrity evidence specifically requires it.

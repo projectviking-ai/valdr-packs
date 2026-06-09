@@ -12,6 +12,20 @@ Valdr Mini-Planner operations.
 | `list_plans` | Find plans with counts and completion metrics | — |
 | `get_plan` | Fetch plan details | `planKey` or `planId` |
 | `commit_markdown` | Create plan from markdown | `markdown`, `idempotencyKey`, `plannerAgentHandle` |
+| `help` | Show structured tool help | — |
+
+## Help Action Response
+
+`vmp { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
 
 ## Usage Patterns
 

@@ -18,6 +18,20 @@ Sprint management operations.
 | `delete` | Delete sprint | `sprintId` |
 | `link_task` | Link task membership | `sprintId`, `taskId` |
 | `unlink_task` | Remove task membership | `sprintId`, `taskId` |
+| `help` | Show structured tool help | — |
+
+## Help Action Response
+
+`pm_sprint { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
 
 ## Usage Patterns
 

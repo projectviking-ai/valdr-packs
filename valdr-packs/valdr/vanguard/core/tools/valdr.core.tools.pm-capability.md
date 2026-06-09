@@ -16,6 +16,20 @@ Capability registry operations.
 | `delete` | Remove capability | `id` |
 | `ensure` | Upsert capability | `key` |
 | `prompt` | Hot-load linked prompt content for capability | `key` |
+| `help` | Show structured tool help | — |
+
+## Help Action Response
+
+`pm_capability { action: "help" }` returns a static, read-only help payload that describes the tool's action surface.
+
+| Field | Shape | Contents |
+|-------|-------|----------|
+| `actions` | string[] | Every accepted `action` name, including `help` |
+| `whenToUse` | object | Map of action → one-line guidance on when to reach for it |
+| `examples` | array | Representative calls, each `{ action, description, arguments }` |
+| `cautions` | string[] | Pitfalls and guardrails to respect |
+| `compatibility` | string[] | Notes on schema/behavior stability across versions |
+
 
 ## Usage Patterns
 
