@@ -10,6 +10,15 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const buildScript = path.join(repoRoot, "scripts", "build-valdr-tier.mjs");
 const buildDir = path.join(repoRoot, "build");
+const sovereignExecutorWorkflowPath = path.join(
+  repoRoot,
+  "valdr-packs",
+  "valdr",
+  "sovereign",
+  "executor",
+  "workflow",
+  "valdr.executor.workflow.md"
+);
 const tiers = ["raider", "vanguard", "sovereign"];
 const exportedAt = "1730000000000";
 
@@ -141,4 +150,13 @@ test("tier overrides preserve expected agent handles and session boundaries", ()
   assert.match(vanguardAuditorMatrix, /pm_audit action=events/);
   assert.match(vanguardAuditorMatrix, /pm_audit action=score/);
   assert.doesNotMatch(vanguardAuditorMatrix, /pm_session action=(get|events)/);
+});
+
+test("sovereign executor exits immediately after reviewer handoff", () => {
+  const workflow = fs.readFileSync(sovereignExecutorWorkflowPath, "utf8");
+  const handoff = workflow.slice(workflow.indexOf("## Step 8: Reviewer Handoff"));
+
+  assert.match(handoff, /next and only action.*final response.*exit the executor session/is);
+  assert.doesNotMatch(handoff, /You will need this to message the reviewer/);
+  assert.doesNotMatch(handoff, /When the reviewer later re-engages this session/);
 });
