@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,7 +7,6 @@ import test from "node:test";
 
 const workflowPath = path.resolve(".github/workflows/release.yml");
 const validationWorkflowPath = path.resolve(".github/workflows/validate.yml");
-const workflowPackReleasePath = path.resolve(".github/workflows/release-valdr-workflow.yml");
 const workflowPackPath = path.resolve("valdr-packs/valdr-workflow/pack.yaml");
 const ideaToSprintWorkflowPath = path.resolve("valdr-packs/valdr-workflow/workflows/planning/valdr-workflow.workflow.idea-to-sprint.workflow.yaml");
 const sprintTaskPrepareWorkflowPath = path.resolve("valdr-packs/valdr-workflow/workflows/sprint/valdr-workflow.workflow.sprint-task-prepare.workflow.yaml");
@@ -26,19 +25,16 @@ test("release workflow is scoped to main pushes with release-affecting path filt
   const workflow = fs.readFileSync(workflowPath, "utf8");
 
   assert.match(workflow, /push:\n\s+branches:\n\s+- main/);
-  assert.match(workflow, /paths:\n\s+- skills\/\*\*\n\s+- commands\/\*\*\n\s+- valdr-packs\/valdr\/\*\*\n\s+- scripts\/build-valdr-tier\.mjs\n\s+- scripts\/generate-valdr-pack\.mjs\n\s+- scripts\/validate-valdr-pack\.mjs\n\s+- scripts\/lib\/\*\*\n\s+- VERSION\n\npermissions:/);
+  assert.match(workflow, /paths:\n\s+- skills\/\*\*\n\s+- commands\/\*\*\n\s+- valdr-packs\/valdr\/\*\*\n\s+- valdr-packs\/valdr-workflow\/\*\*\n\s+- scripts\/build-valdr-tier\.mjs\n\s+- scripts\/generate-valdr-pack\.mjs\n\s+- scripts\/validate-valdr-pack\.mjs\n\s+- scripts\/lib\/\*\*\n\s+- VERSION\n\s+- VALDR_WORKFLOW_CLI_VERSION\n\s+- Makefile\n\s+- \.github\/workflows\/release\.yml\n\npermissions:/);
   assert.doesNotMatch(workflow, /README\.md/);
-  assert.doesNotMatch(workflow, /valdr-packs\/valdr-workflow/);
-  assert.doesNotMatch(workflow, /VALDR_WORKFLOW_CLI_VERSION/);
-  assert.doesNotMatch(workflow, /Makefile/);
-  assert.doesNotMatch(workflow, /\.github\/workflows\/release(?:-valdr-workflow)?\.yml/);
+  assert.doesNotMatch(workflow, /workflow_dispatch:|\n\s+tags:/);
 });
 
-test("valdr-workflow release builds on dispatch and publishes only its verified tagged archive", () => {
-  const workflow = fs.readFileSync(workflowPackReleasePath, "utf8");
-  const archive = "build/valdr-workflow.valdr-pack.tar.gz";
+test("one release builds all four packs with the pinned CLI and publishes the repository version", () => {
+  const workflow = fs.readFileSync(workflowPath, "utf8");
+  const archives = ["raider", "vanguard", "sovereign", "workflow"].map((pack) => `build/valdr-${pack}.valdr-pack.tar.gz`);
 
-  assert.match(workflow, /^on:\n  workflow_dispatch:\n  push:\n    tags:\n      - valdr-workflow-v\*\n\npermissions:/m);
+  assert.equal(fs.existsSync(".github/workflows/release-valdr-workflow.yml"), false, "one release workflow owns all packs");
   assert.match(workflow, /permissions:\n\s+contents: write/);
   assert.match(workflow, /runs-on: macos-14/);
   assert.match(workflow, /gh release download "v\$\{CLI_VERSION\}" --repo projectviking-ai\/valdr-releases/);
@@ -48,41 +44,37 @@ test("valdr-workflow release builds on dispatch and publishes only its verified 
   assert.doesNotMatch(workflow, /linux-x64/);
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
-  assert.match(workflow, /VALDR_BIN=.*make build-valdr-workflow/);
-  assert.match(workflow, /PACK_VERSION="\$\(awk '[\s\S]*?if \(count != 1 \|\| version == ""\) exit 1[\s\S]*?' valdr-packs\/valdr-workflow\/pack\.yaml\)"/);
-  assert.match(workflow, /if \[ -z "\$CLI_VERSION" \] \|\| \[ -z "\$PACK_VERSION" \]/);
-  assert.match(workflow, /RELEASE_TAG="valdr-workflow-v\$\{PACK_VERSION\}"/);
-  assert.match(workflow, /if \[ "\$GITHUB_REF_NAME" != "\$RELEASE_TAG" \]/);
-  assert.match(workflow, /gh api --method GET "repos\/\$\{GITHUB_REPOSITORY\}\/releases\/tags\/\$\{GITHUB_REF_NAME\}" --include --silent/);
-  assert.match(workflow, /200\) echo "Release \$GITHUB_REF_NAME already exists\." >&2; exit 1 ;;/);
-  assert.match(workflow, /404\) ;;/);
-  assert.match(workflow, /\*\) echo "Could not determine whether release \$GITHUB_REF_NAME exists/);
-  for (const stepName of ["Verify release tag", "Fail if release exists", "Create GitHub Release"]) {
-    assert.match(workflow, new RegExp(`- name: ${stepName}\\n\\s+if: github\\.event_name == 'push'`));
-  }
-  assert.match(workflow, /uses: actions\/upload-artifact@v4[\s\S]*?path: build\/valdr-workflow\.valdr-pack\.tar\.gz\n\s+if-no-files-found: error/);
-  assert.match(workflow, /--title "Valdr Workflow Pack \$\{PACK_VERSION\}"/);
-  assert.match(workflow, /--notes "Valdr workflow pack release \$\{PACK_VERSION\}"/);
-  assert.doesNotMatch(workflow, /valdr-(?:raider|vanguard|sovereign)\.valdr-pack\.tar\.gz/);
+  assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
+  assert.match(workflow, /run: make build-valdr-all/);
+  assert.match(fs.readFileSync("Makefile", "utf8"), /^build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow$/m);
+  assert.match(workflow, /tr -d '\\n' < VERSION/);
+  assert.match(workflow, /if \[ -z "\$CLI_VERSION" \]/);
+  assert.doesNotMatch(workflow, /GITHUB_REF_NAME/);
+  assert.match(workflow, /--title "v\$\{VERSION\}"/);
+  assert.match(workflow, /--notes "Valdr pack release v\$\{VERSION\}"/);
 
   const steps = workflow.match(/- name:[\s\S]*?(?=\n      - name:|$)/g);
   const stepIndex = (name) => steps.findIndex((step) => step.startsWith(`- name: ${name}\n`));
-  assert.ok(stepIndex("Fail if release exists") < stepIndex("Download pinned Valdr CLI"));
-  assert.ok(stepIndex("Fail if release exists") < stepIndex("Build Valdr Workflow Pack"));
-  assert.ok(stepIndex("Fail if release exists") < stepIndex("Upload Valdr Workflow Pack"));
+  assert.ok(stepIndex("Fail if release tag already exists") >= 0);
+  assert.ok(stepIndex("Fail if release tag already exists") < stepIndex("Download pinned Valdr CLI"));
+  assert.ok(stepIndex("Fail if release tag already exists") < stepIndex("Build release archives"));
+  for (const name of ["Fail if release tag already exists", "Create GitHub Release"]) {
+    assert.match(steps[stepIndex(name)], /VERSION: \$\{\{ steps\.version\.outputs\.value \}\}/);
+    assert.doesNotMatch(steps[stepIndex(name)], /\n\s+if:/);
+  }
 
   const releaseOperations = [
     /gh release download/,
     /shasum -a 256 -c/,
     /tar -xzf/,
     /actual_version="\$\(bin\/valdr version \| awk/,
-    /make build-valdr-workflow/,
-    /uses: actions\/upload-artifact@v4/,
+    /make ci-validate/,
+    /make build-valdr-all/,
     /gh release create/,
   ].map((pattern) => workflow.search(pattern));
   assert.ok(releaseOperations.every((index) => index >= 0), "expected every release operation");
   assert.ok(releaseOperations.every((index, position) => position === 0 || releaseOperations[position - 1] < index),
-    "release operations must be download, checksum, extract, verify, build, upload, then release");
+    "release operations must be download, checksum, extract, verify, test, build, then release");
 
   const ghSteps = steps.filter((step) => /\bgh\b/.test(step));
   assert.ok(ghSteps.length >= 3, "expected lookup, download, and publishing gh steps");
@@ -90,9 +82,56 @@ test("valdr-workflow release builds on dispatch and publishes only its verified 
     assert.match(step, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   }
 
-  const releaseCommand = workflow.match(/gh release create[\s\S]*?--notes "Valdr workflow pack release \$\{PACK_VERSION\}"/);
-  assert.ok(releaseCommand, "expected workflow-pack release creation");
-  assert.deepEqual(releaseCommand[0].match(/build\/[^\\\s]+/g), [archive]);
+  const releaseCommand = workflow.match(/gh release create[\s\S]*?--notes "Valdr pack release v\$\{VERSION\}"/);
+  assert.ok(releaseCommand, "expected one release creation");
+  assert.deepEqual(releaseCommand[0].match(/build\/[^\\\s]+/g), archives);
+});
+
+test("release shell publishes all packs at the pushed commit and fails closed on tag lookup", (t) => {
+  const workflow = fs.readFileSync(workflowPath, "utf8");
+  const steps = workflow.match(/- name:[\s\S]*?(?=\n      - name:|$)/g);
+  const guard = steps.find((step) => step.startsWith("- name: Fail if release"));
+  const publish = steps.find((step) => step.startsWith("- name: Create GitHub Release\n"));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-release-"));
+  t.after(() => fs.rmSync(directory, { force: true, recursive: true }));
+  const calls = path.join(directory, "gh-calls");
+  const script = `gh() {
+    printf '%s\\n' "$@" >> "$GH_CALLS"
+    if [ "$1" = api ]; then
+      printf '%s\\n' "$GH_RESPONSE"
+      return "$GH_STATUS"
+    fi
+  }
+  ${guard.split("        run: |\n")[1]}
+  ${publish.split("        run: |\n")[1]}`;
+
+  for (const [response, ghStatus, expectedStatus] of [
+    ["HTTP/2 200", "0", 1],
+    ["HTTP/2 404", "1", 0],
+    ["HTTP/2 403", "1", 1],
+    ["HTTP/2 500", "1", 1],
+    ["", "1", 1],
+  ]) {
+    fs.writeFileSync(calls, "");
+    const result = spawnSync("/bin/bash", ["-e", "-c", script], {
+      encoding: "utf8",
+      env: {
+        ...process.env, GH_CALLS: calls, GH_RESPONSE: response, GH_STATUS: ghStatus,
+        GITHUB_REPOSITORY: "example/packs", GITHUB_REF_NAME: "main",
+        GITHUB_SHA: "1234567890abcdef1234567890abcdef12345678",
+        VERSION: "1.2.3",
+      },
+    });
+    assert.equal(result.status, expectedStatus, `${response || "network failure"}: ${result.stderr}`);
+    const expectedCalls = ["api", "--method", "GET", "repos/example/packs/git/ref/tags/v1.2.3", "--include", "--silent"];
+    if (expectedStatus === 0) expectedCalls.push(
+      "release", "create", "v1.2.3",
+      ...["raider", "vanguard", "sovereign", "workflow"].map((pack) => `build/valdr-${pack}.valdr-pack.tar.gz`),
+      "--target", "1234567890abcdef1234567890abcdef12345678",
+      "--title", "v1.2.3", "--notes", "Valdr pack release v1.2.3",
+    );
+    assert.deepEqual(fs.readFileSync(calls, "utf8").trim().split("\n"), expectedCalls);
+  }
 });
 
 test("pull requests validate the workflow pack with the exact pinned public CLI", () => {
@@ -170,10 +209,10 @@ test("public docs explain release assets, import order, and runtime configuratio
   const workflowReadme = fs.readFileSync(workflowReadmePath, "utf8");
   const combined = `${publicReadme}\n${workflowReadme}`;
 
-  assert.match(combined, /valdr 0\.3\.0/i);
+  assert.match(combined, /VALDR_WORKFLOW_CLI_VERSION/);
   assert.match(combined, /valdr-sovereign\.valdr-pack\.tar\.gz/);
   assert.match(combined, /valdr-workflow\.valdr-pack\.tar\.gz/);
-  assert.match(combined, /valdr-workflow-v0\.13\.0/);
+  assert.doesNotMatch(combined, /valdr-workflow-v/);
   assert.match(combined, /Valdr UI/);
   assert.match(combined, /pm_provider/);
   assert.match(combined, /pm_agent/);

@@ -26,7 +26,7 @@ help:
 	@echo "  build-valdr-vanguard Build the Vanguard valdr tier archive"
 	@echo "  build-valdr-sovereign Build the Sovereign valdr tier archive"
 	@echo "  build-valdr-workflow Build the valdr-workflow pack archive with the pinned CLI"
-	@echo "  build-valdr-all      Build all Valdr tier archives"
+	@echo "  build-valdr-all      Build Raider, Vanguard, Sovereign, and Workflow archives"
 
 sync-all: sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini
 	@echo ""
@@ -126,4 +126,4 @@ build-valdr-workflow: validate-valdr-workflow
 	@mkdir -p build
 	@$(VALDR_BIN) generate-valdr-pack valdr-packs/valdr-workflow --output build/valdr-workflow.valdr-pack.tar.gz
 
-build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign
+build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow

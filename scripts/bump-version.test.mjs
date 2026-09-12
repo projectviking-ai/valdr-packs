@@ -18,3 +18,10 @@ test("bumpVersion increments major versions and resets lower parts", () => {
 test("bumpVersion accepts an explicit semantic version", () => {
   assert.equal(bumpVersion("1.2.3", "2.5.0"), "2.5.0");
 });
+
+test("bumpVersion accepts four-part release revisions and rejects extra components", () => {
+  assert.equal(bumpVersion("0.3.0", "0.3.0.1"), "0.3.0.1");
+  assert.equal(bumpVersion("0.3.0.1", "0.3.0.2"), "0.3.0.2");
+  assert.equal(bumpVersion("0.3.0.1", "patch"), "0.3.1");
+  assert.throws(() => bumpVersion("0.3.0", "0.3.0.1.2"), /Invalid repository version/);
+});

@@ -1,19 +1,19 @@
 # Valdr Workflow Pack
 
-`valdr-workflow@0.13.0` adds reusable task, sprint, planning, and pull-request workflows to Valdr. It is a companion to `valdr@0.3.0` Sovereign and requires Valdr CLI `0.3.0`.
+`valdr-workflow` adds reusable task, sprint, planning, and pull-request workflows to Valdr. It is a companion to the Valdr Sovereign pack.
 
-Use this supported compatibility tuple. Download the CLI from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases) and both packs from [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases):
+Download both packs from the same release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases). Read [`VALDR_WORKFLOW_CLI_VERSION`](../../VALDR_WORKFLOW_CLI_VERSION) at that release tag and download the matching CLI from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases):
 
-| Component | Release tag | Asset |
-| --- | --- | --- |
-| Valdr CLI `0.3.0` | `v0.3.0` in `projectviking-ai/valdr-releases` | `valdr-v0.3.0-macos-arm64.tar.gz` and `.sha256` |
-| Sovereign `0.3.0` | `v0.3.0` | `valdr-sovereign.valdr-pack.tar.gz` |
-| Workflow `0.13.0` | `valdr-workflow-v0.13.0` | `valdr-workflow.valdr-pack.tar.gz` |
+| Component | Asset |
+| --- | --- |
+| Valdr CLI | `valdr-v<cli-version>-macos-arm64.tar.gz` and `.sha256` |
+| Sovereign | `valdr-sovereign.valdr-pack.tar.gz` |
+| Workflow | `valdr-workflow.valdr-pack.tar.gz` |
 
 ## Import
 
 1. Install the exact compatible Valdr CLI.
-2. Download the Sovereign and Workflow archives from their GitHub releases.
+2. Download the Sovereign and Workflow archives from the same GitHub release.
 3. In the Valdr UI pack import flow, preflight the Sovereign archive, review its plan, and commit it.
 4. Preflight the Workflow archive, confirm that its core capability references resolve, review its plan, and commit it.
 
@@ -38,11 +38,11 @@ Pull requests start as drafts unless `initialDraft` is false. The writer can dra
 
 ## Primary entrypoints
 
-- `valdr-workflow.idea-to-sprint@0.20.0`: plan an idea, execute its sprint, and publish the reviewed delivery.
-- `valdr-workflow.task.prepare-deliver-and-publish@0.3.0`: take one written task through readiness, staffing, delivery, review, commit, and pull request.
-- `valdr-workflow.pull-request.create@0.4.0`: publish an existing branch through a frozen-evidence approval gate.
+- `valdr-workflow.idea-to-sprint`: plan an idea, execute its sprint, and publish the reviewed delivery.
+- `valdr-workflow.task.prepare-deliver-and-publish`: take one written task through readiness, staffing, delivery, review, commit, and pull request.
+- `valdr-workflow.pull-request.create`: publish an existing branch through a frozen-evidence approval gate.
 
-All subworkflow versions are exact. Validation must report zero unresolved workflow references before release. Empty executor, reviewer, and preset fallbacks deliberately block when routing returns unknown.
+Use the exact workflow versions declared in the definitions shipped with your selected pack. Validation must report zero unresolved workflow references before release. Empty executor, reviewer, and preset fallbacks deliberately block when routing returns unknown.
 
 ## Validate from source
 
