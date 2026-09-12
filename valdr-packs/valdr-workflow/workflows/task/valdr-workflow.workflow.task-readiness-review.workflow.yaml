@@ -1,0 +1,178 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.readiness-review
+  name: Review Task Readiness
+  description: Judge whether one task is clear, correct, and actionable enough to implement, and publish a gated verdict. Reuse an already provisioned task-readiness-reviewer session so the same reviewer can assess later corrections. Start it directly only with an existing reviewer session for the task.
+  version: 0.5.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-readiness-review
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to review for implementation readiness.
+    reviewerSessionUlid:
+      type: string
+      required: true
+      # Not taken on trust. The engine's own guard proves only that this session
+      # belongs to some trusted agent, never which agent or which task, so
+      # await_verdict asserts both explicitly through expectAgentHandle and
+      # expectTaskKey below. A caller that hands this workflow a sizer session,
+      # or a reviewer session opened against a different task, is blocked before
+      # the prompt is delivered rather than believed.
+      description: Existing task-readiness-reviewer session retained across repair and human-correction passes. Its target agent and task binding are re-checked before each turn.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: task_ready, task_needs_changes when the gaps are bounded and fixable, or task_rejected when the premise is wrong or unsafe.
+    summary:
+      type: string
+      required: true
+      description: The reviewer's one-sentence verdict summary, including the blocking reason when readiness does not pass.
+    reviewerSessionUlid:
+      type: string
+      required: true
+      description: Reviewer session that produced the verdict. Its final message holds the full receipt - scores, findings, and proposed fixes.
+    blockingFindings:
+      type: array
+      required: true
+      # Kept required because a caller that branches on this array must always
+      # receive one, but defaulted rather than enforced. The gate extracts only
+      # $.verdict, so an omitted blockingFindings is not a gate-invalid receipt
+      # and onInvalid never fires; without a default, a reviewer that returned a
+      # perfectly good "ready" verdict and dropped the empty array would fail
+      # output finalization and block the whole run. An empty list is also the
+      # correct value for a ready verdict, so the default is never a lie.
+      default: []
+      description: Exact blocking findings and proposed replacement text for a task-repair agent or human operator. Empty when the verdict is task_ready, and empty by default when the reviewer omits the field entirely.
+    taskUpdatedAt:
+      type: number
+      required: true
+      description: Task revision reviewed by the agent and verified against a workflow-owned reload before this verdict is published.
+  outputMappings:
+    outcome: "${steps.gate_task_freshness.outputs.outcome}"
+    summary: "${steps.gate_task_freshness.outputs.summary}"
+    reviewerSessionUlid: "${workflow.inputs.reviewerSessionUlid}"
+    blockingFindings: "${steps.gate_task_freshness.outputs.blockingFindings}"
+    taskUpdatedAt: "${steps.gate_task_freshness.outputs.taskUpdatedAt}"
+  steps:
+    - key: load_task
+      name: Load current task snapshot
+      kind: tool
+      tool:
+        id: pm_task
+        action: get
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        taskSnapshot: "$.normalized.task"
+        taskUpdatedAt: "$.normalized.task.updatedAt"
+
+    - key: await_verdict
+      name: Review task readiness
+      kind: session
+      needs:
+        - load_task
+      session:
+        action: input
+        sessionUlid: "${workflow.inputs.reviewerSessionUlid}"
+        # This workflow takes its reviewer session from the caller, so these two
+        # assertions are what bind that ULID to a task-readiness-reviewer session
+        # opened against this task. Without them the engine would deliver the
+        # reviewer prompt to any session with a trusted agent handle and return
+        # its verdict as this task's readiness verdict. A mismatch blocks the
+        # step; it does not fall through.
+        expectAgentHandle: task-readiness-reviewer
+        expectTaskKey: "${workflow.inputs.taskKey}"
+        # Replaces the builder's default turn instruction, which otherwise tells
+        # the session to IMPLEMENT the task. The rubric and the JSON output
+        # contract come from the agent's registered capabilities.
+        prompt: |
+          Review task ${workflow.inputs.taskKey} for implementation readiness.
+
+          Do NOT implement this task and do NOT edit, create, or delete any
+          file. Do not change task status, checklists, comments, reviews, or
+          workflow state.
+
+          Review this workflow-loaded task snapshot, not any task state retained
+          from an earlier turn. The snapshot is authoritative for this turn:
+
+          ${steps.load_task.outputs.taskSnapshot}
+
+          Its revision is ${steps.load_task.outputs.taskUpdatedAt}. Copy that
+          exact number into taskUpdatedAt in your JSON receipt. Score ACCEPTANCE
+          against task.metadata.checklists[].items[].label in this snapshot, not
+          against the description's prose. A task with no checklist at all is an
+          ACCEPTANCE fail.
+
+          Verify every claim the task makes about the codebase by opening the
+          referenced files in this worktree, and record what you opened in
+          filesInspected.
+
+          Your entire final message must be the single JSON receipt defined by
+          your system prompt - no prose before or after it.
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - task_ready
+          - task_needs_changes
+          - task_rejected
+      gates:
+        - key: readiness_verdict
+          kind: session_output
+          source:
+            sessionUlid: "${workflow.inputs.reviewerSessionUlid}"
+            event: final_agent_message
+          # The reviewer's receipt names the decision `verdict`, not `outcome`.
+          extract:
+            format: json
+            path: $.verdict
+          outcomes:
+            ready: task_ready
+            needs_changes: task_needs_changes
+            reject: task_rejected
+          onInvalid:
+            action: block
+          payload:
+            includeParsed: true
+            includeSession: false
+      outputs:
+        outcome: "$.normalized.input.outcome"
+        summary: "$.normalized.input.payload.gate.parsed.summary"
+        blockingFindings: "$.normalized.input.payload.gate.parsed.blockingFindings"
+        taskUpdatedAt: "$.normalized.input.payload.gate.parsed.taskUpdatedAt"
+
+    - key: reload_task
+      name: Reload task after review
+      kind: tool
+      needs:
+        - await_verdict
+      tool:
+        id: pm_task
+        action: get
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        taskUpdatedAt: "$.normalized.task.updatedAt"
+
+    - key: gate_task_freshness
+      name: Verify reviewed task revision
+      kind: condition
+      needs:
+        - reload_task
+      checks:
+        - kind: value_equals
+          value: "${steps.await_verdict.outputs.taskUpdatedAt}"
+          equals: "${steps.reload_task.outputs.taskUpdatedAt}"
+      outputs:
+        outcome: "${steps.await_verdict.outputs.outcome}"
+        summary: "${steps.await_verdict.outputs.summary}"
+        blockingFindings: "${steps.await_verdict.outputs.blockingFindings}"
+        taskUpdatedAt: "${steps.reload_task.outputs.taskUpdatedAt}"
+      onFailure:
+        action: block

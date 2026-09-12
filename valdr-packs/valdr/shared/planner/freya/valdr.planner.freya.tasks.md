@@ -1,4 +1,4 @@
-<!--<capability id="valdr.planner.freya.tasks" pack="valdr" role="workflow">-->
+<!--<capability id="valdr.planner.freya.tasks" pack="valdr" role="constraints">-->
 # VMP Task Writing Guide
 
 This capability provides guidance for writing tasks that AI agents can execute independently.

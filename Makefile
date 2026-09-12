@@ -1,8 +1,11 @@
 SHELL := /bin/sh
 
+VALDR_BIN ?= valdr
+VALDR_WORKFLOW_CLI_VERSION := $(strip $(shell cat VALDR_WORKFLOW_CLI_VERSION))
+
 SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs
 
-.PHONY: help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-all
+.PHONY: help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack check-valdr-workflow-cli validate-valdr-workflow test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-all
 
 help:
 	@echo "Targets:"
@@ -14,12 +17,15 @@ help:
 	@echo "  sync-skills-codex    Sync skills to ~/.agents/skills/ (alias for sync-skills-agent)"
 	@echo "  sync-skills-gemini   Sync skills to ~/.gemini/skills/"
 	@echo "  validate-valdr-pack  Stage and validate the Raider/Vanguard/Sovereign pack roots"
+	@echo "  check-valdr-workflow-cli Verify the pinned Valdr CLI version"
+	@echo "  validate-valdr-workflow Validate the valdr-workflow pack with the pinned CLI"
 	@echo "  test-scripts         Run the repository script test suite"
 	@echo "  ci-validate          Run pack validation plus script tests"
 	@echo "  generate-valdr-pack  Run the generic pack archive generator"
 	@echo "  build-valdr-raider   Build the Raider valdr tier archive"
 	@echo "  build-valdr-vanguard Build the Vanguard valdr tier archive"
 	@echo "  build-valdr-sovereign Build the Sovereign valdr tier archive"
+	@echo "  build-valdr-workflow Build the valdr-workflow pack archive with the pinned CLI"
 	@echo "  build-valdr-all      Build all Valdr tier archives"
 
 sync-all: sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini
@@ -88,6 +94,17 @@ sync-skills-gemini:
 validate-valdr-pack:
 	@node scripts/validate-valdr-pack.mjs
 
+check-valdr-workflow-cli:
+	@actual="$$($(VALDR_BIN) version)" || exit $$?; \
+	actual_version="$$(printf '%s\n' "$$actual" | sed -n 's/^valdr \([^ (]*\).*$$/\1/p')"; \
+	if [ "$$actual_version" != "$(VALDR_WORKFLOW_CLI_VERSION)" ]; then \
+		echo "Expected Valdr CLI $(VALDR_WORKFLOW_CLI_VERSION), got: $$actual" >&2; \
+		exit 1; \
+	fi
+
+validate-valdr-workflow: check-valdr-workflow-cli
+	@$(VALDR_BIN) validate-pack valdr-packs/valdr-workflow
+
 test-scripts:
 	@$(SCRIPT_TESTS)
 
@@ -104,5 +121,9 @@ build-valdr-vanguard:
 
 build-valdr-sovereign:
 	@node scripts/build-valdr-tier.mjs sovereign
+
+build-valdr-workflow: validate-valdr-workflow
+	@mkdir -p build
+	@$(VALDR_BIN) generate-valdr-pack valdr-packs/valdr-workflow --output build/valdr-workflow.valdr-pack.tar.gz
 
 build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign

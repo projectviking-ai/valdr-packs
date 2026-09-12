@@ -1,0 +1,190 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.sprint.execute
+  name: Execute Sprint
+  description: Prepare, schedule, and deliver a fixed task set for an existing sprint.
+  version: 0.16.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.sprint-execute
+  start:
+    mode: manual
+  inputs:
+    sprintId:
+      type: string
+      required: true
+    projectKey:
+      type: string
+      required: true
+    taskKeys:
+      type: array
+      required: true
+    routerLauncherConfigKey:
+      type: string
+      required: true
+    reviewerLauncherConfigKey:
+      type: string
+      required: true
+    schedulerLauncherConfigKey:
+      type: string
+      required: true
+    baseRef:
+      type: string
+      required: false
+    mergeTargetBranch:
+      type: string
+      required: false
+      default: ""
+  outputs:
+    sprintId: { type: string, required: true }
+    taskKeys: { type: array, required: true }
+    preparationResults: { type: array, required: true }
+    scheduledTaskKeys: { type: array, required: true }
+    scheduleReasoning: { type: string, required: true }
+    schedulerSessionUlid: { type: string, required: true }
+    deliveryResults: { type: array, required: true }
+    sprintCloseOutcome: { type: string, required: true }
+    sprintTasks: { type: array, required: true }
+  outputMappings:
+    sprintId: "${workflow.inputs.sprintId}"
+    taskKeys: "${workflow.inputs.taskKeys}"
+    preparationResults: "${steps.prepare_tasks.outputs.children}"
+    scheduledTaskKeys: "${steps.schedule_tasks.outputs.scheduledTaskKeys}"
+    scheduleReasoning: "${steps.schedule_tasks.outputs.reasoning}"
+    schedulerSessionUlid: "${steps.schedule_tasks.outputs.sessionUlid}"
+    deliveryResults: "${steps.deliver_tasks.outputs.children}"
+    sprintCloseOutcome: "${steps.close_sprint.outputs.outcome}"
+    sprintTasks: "${steps.close_sprint.outputs.tasks}"
+  steps:
+    - key: validate_task_keys
+      name: Validate task keys
+      kind: condition
+      onFailure: { action: block }
+      checks:
+        - kind: array_unique_nonempty_strings
+          value: "${workflow.inputs.taskKeys}"
+
+    - key: prepare_tasks
+      name: Prepare tasks
+      kind: subworkflow
+      needs: [validate_task_keys]
+      workflow:
+        key: valdr-workflow.sprint.task-prepare
+        version: 0.10.0
+      inputs:
+        sprintId: "${workflow.inputs.sprintId}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        reviewerLauncherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+      forEach:
+        items: "${workflow.inputs.taskKeys}"
+        itemName: taskKey
+        maxConcurrent: 1
+      outputs:
+        children: $.normalized.children
+
+    - key: schedule_tasks
+      name: Schedule prepared tasks
+      kind: session
+      needs: [prepare_tasks]
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKeys[0]}"
+        agentHandle: sprint-scheduler
+        launcherConfigKey: "${workflow.inputs.schedulerLauncherConfigKey}"
+        actor: "${runtime.actor}"
+        role: orchestrator
+        worktree:
+          disabled: true
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        maxRuntimeSeconds: 900
+        prompt: |
+          Schedule this fixed ordered task set for delivery:
+          ${workflow.inputs.taskKeys}
+
+          Inspect only these tasks with pm_task/get. Return every key exactly once,
+          putting obvious prerequisites first and otherwise preserving this order.
+          Do not mutate anything. Return only the JSON object required by your
+          system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected: [scheduled, blocked]
+      gates:
+        - key: schedule
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract:
+            format: json
+            path: $.outcome
+          outcomes:
+            scheduled: scheduled
+            blocked: blocked
+          onInvalid:
+            action: block
+          payload:
+            includeParsed: true
+            includeSession: false
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+        outcome: $.normalized.input.outcome
+        scheduledTaskKeys: $.normalized.input.payload.gate.parsed.scheduledTaskKeys
+        reasoning: $.normalized.input.payload.gate.parsed.reasoning
+
+    - key: validate_schedule
+      name: Validate schedule
+      kind: condition
+      needs: [schedule_tasks]
+      onFailure: { action: block }
+      checks:
+        - kind: value_equals
+          value: "${steps.schedule_tasks.outputs.outcome}"
+          equals: scheduled
+        - kind: array_permutation_equals
+          value: "${steps.schedule_tasks.outputs.scheduledTaskKeys}"
+          expected: "${workflow.inputs.taskKeys}"
+
+    - key: deliver_tasks
+      name: Deliver tasks
+      kind: subworkflow
+      needs: [validate_schedule]
+      workflow:
+        key: valdr-workflow.task.deliver-and-closeout
+        version: 0.5.0
+      inputs:
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        baseRef: "${workflow.inputs.baseRef}"
+        mergeTargetBranch: "${workflow.inputs.mergeTargetBranch}"
+      forEach:
+        items: "${steps.schedule_tasks.outputs.scheduledTaskKeys}"
+        itemName: taskKey
+        maxConcurrent: 1
+      outputs:
+        children: $.normalized.children
+
+    - key: close_sprint
+      name: Close checked sprint
+      kind: tool
+      needs: [deliver_tasks]
+      tool: { id: pm_sprint, action: close_checked }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        sprintId: "${workflow.inputs.sprintId}"
+        expectedTaskKeys: "${workflow.inputs.taskKeys}"
+      outputs:
+        outcome: "$.normalized.outcome"
+        expectedTaskKeys: "$.normalized.expectedTaskKeys"
+        tasks: "$.normalized.tasks"
+        recommendedAction: "$.normalized.recommendedAction"
+
+    - key: accept_close
+      name: Accept closed sprint
+      kind: condition
+      needs: [close_sprint]
+      checks:
+        - kind: value_in
+          value: "${steps.close_sprint.outputs.outcome}"
+          allowed: [closed, existing]
+      onFailure: { action: block }

@@ -1,0 +1,47 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.sprint.closeout
+  name: Close Out Sprint
+  description: Close the sprint only when its current nonempty task set is done.
+  version: 0.1.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.sprint-closeout
+  start: { mode: manual }
+  inputs:
+    projectKey: { type: string, required: true }
+    sprintId: { type: string, required: true }
+  outputs:
+    sprintId: { type: string, required: true }
+    outcome: { type: string, required: true }
+    taskKeys: { type: array, required: true }
+    tasks: { type: array, required: true }
+  outputMappings:
+    sprintId: "${workflow.inputs.sprintId}"
+    outcome: "${steps.close_sprint.outputs.outcome}"
+    taskKeys: "${steps.close_sprint.outputs.expectedTaskKeys}"
+    tasks: "${steps.close_sprint.outputs.tasks}"
+  steps:
+    - key: close_sprint
+      name: Close checked sprint
+      kind: tool
+      tool: { id: pm_sprint, action: close_checked }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        sprintId: "${workflow.inputs.sprintId}"
+      outputs:
+        outcome: "$.normalized.outcome"
+        expectedTaskKeys: "$.normalized.expectedTaskKeys"
+        tasks: "$.normalized.tasks"
+        recommendedAction: "$.normalized.recommendedAction"
+
+    - key: accept_close
+      name: Accept closed sprint
+      kind: condition
+      needs: [close_sprint]
+      checks:
+        - kind: value_in
+          value: "${steps.close_sprint.outputs.outcome}"
+          allowed: [closed, existing]
+      onFailure: { action: block }

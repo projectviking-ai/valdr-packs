@@ -1,0 +1,23 @@
+schemaVersion: 1.0
+agent:
+  handle: task-sizer
+  name: Task Sizer
+  kind: bot
+  defaultRole: planner
+  tags:
+    - valdr-workflow
+    - sizing
+    - estimation
+    - planning
+capabilities:
+  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
+  # system prompt, and the sizer must never estimate without the guide.
+  - key: valdr-workflow.task-sizing.sizer.system
+    role: core
+  - key: valdr.core.sizing.ai-story-points
+    role: context
+  - key: valdr-workflow.base.mcp-access
+    role: constraints
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true

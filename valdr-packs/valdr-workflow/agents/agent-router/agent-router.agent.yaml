@@ -1,0 +1,26 @@
+schemaVersion: 1.0
+agent:
+  handle: agent-router
+  name: Agent Router
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr-workflow
+    - agent-routing
+    - routing
+    - assignment
+capabilities:
+  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
+  # system prompt, and the router must never choose without its policy.
+  - key: valdr-workflow.agent-routing.router.system
+    role: core
+  - key: valdr-workflow.agent-routing.policy
+    role: constraints
+  - key: valdr-workflow.base.mcp-access
+    role: constraints
+  - key: valdr.core.tools.pm-agent
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true

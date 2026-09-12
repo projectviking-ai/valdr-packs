@@ -7,6 +7,28 @@ Valdr packs are portable, self-describing bundles of agents, prompts, and capabi
 
 ## Quick Start
 
+Use this supported compatibility tuple:
+
+| Component | Version | Release asset |
+| --- | --- | --- |
+| Valdr CLI | `0.3.0` | `valdr-v0.3.0-macos-arm64.tar.gz` plus its `.sha256` |
+| Valdr Sovereign pack | `valdr@0.3.0` | `valdr-sovereign.valdr-pack.tar.gz` |
+| Valdr Workflow pack | `valdr-workflow@0.13.0` | `valdr-workflow.valdr-pack.tar.gz` |
+
+1. Download Valdr 0.3.0 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases).
+2. Download `valdr-sovereign.valdr-pack.tar.gz` from [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
+3. Download `valdr-workflow.valdr-pack.tar.gz` from the same releases page.
+4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow pack. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
+5. Configure launcher presets, register eligible bot agents, and attach a Git repository project before starting a workflow.
+
+The Workflow pack intentionally fails closed when it cannot identify an eligible executor, reviewer, or launcher preset. Use `pm_provider` with `action: list_presets` to find launcher configuration keys and `pm_agent` with `action: list` to inspect eligible bot handles. Router and sizing presets must honour strict JSON output; implementation, review, planning, and pull-request writer presets also need repository access where their input descriptions say so. Full setup and entrypoint details are in the [Workflow pack guide](valdr-packs/valdr-workflow/README.md).
+
+Pull-request workflows default `remoteName` to `origin`, preserve the actual checked-out base branch when no base is supplied, and propose draft pull requests by default. Supply another remote name explicitly when the project uses a different Git remote. Proposal publication always requires the named human operator's approval.
+
+### Source checkout skills
+
+From a source checkout, install the repository's standalone skills with:
+
 ```bash
 # Install skills to all supported platforms
 make sync-all
@@ -44,11 +66,12 @@ valdr-packs/
     ├── AGENT-SPEC.md          # .agent.yaml format specification
     ├── PROMPT-SPEC.md         # Prompt markdown specification
     ├── TAG-MAP.md             # Structured tagging conventions
-    └── valdr/                 # Layered Valdr pack source
-        ├── shared/            # Files common to all tiers
-        ├── raider/            # Raider-only overrides
-        ├── vanguard/          # Vanguard-only overrides
-        └── sovereign/         # Sovereign-only overrides
+    ├── valdr/                 # Layered Valdr pack source
+    │   ├── shared/            # Files common to all tiers
+    │   ├── raider/            # Raider-only overrides
+    │   ├── vanguard/          # Vanguard-only overrides
+    │   └── sovereign/         # Sovereign-only overrides
+    └── valdr-workflow/        # Independently versioned workflow pack
 ```
 
 ## What's Inside
@@ -117,6 +140,10 @@ Full orchestration tier.
 - Adds Skadi
 - Adds session-aware reviewer, executor, and orchestrator overrides
 - Supports spawning, session messaging, and worktree-aware orchestration
+
+### Valdr Workflow
+
+An independently versioned companion to Sovereign that adds 24 workflow definitions and their 13 workflow-owned agents. It covers task readiness, staffing, implementation and review, sprint execution, plan generation, and operator-approved pull-request publication. Import Sovereign first so the Workflow agents can resolve the core capabilities they reference.
 
 ## Agent Roster
 
@@ -223,9 +250,9 @@ All three tier archives share that version, and the release workflow publishes t
 
 ### CI Automation
 
-- Pull requests and non-`main` branch pushes run pack validation and script tests through `.github/workflows/validate.yml`
-- Pushes to `main` only trigger `.github/workflows/release.yml` when release-affecting files change: `skills/`, `commands/`, `valdr-packs/`, `scripts/`, `VERSION`, or the release workflow itself
-- When it runs, the release workflow validates the repo, builds all three tier archives, and publishes them to a GitHub Release
+- Pull requests run pack validation and script tests through `.github/workflows/validate.yml`.
+- Pushes to `main` trigger `.github/workflows/release.yml` only for changes under `skills/**`, `commands/**`, `valdr-packs/valdr/**`, `scripts/build-valdr-tier.mjs`, `scripts/generate-valdr-pack.mjs`, `scripts/validate-valdr-pack.mjs`, `scripts/lib/**`, or `VERSION`. That workflow validates the repository, builds the Raider, Vanguard, and Sovereign archives, then publishes them to the matching `v<version>` GitHub Release.
+- `.github/workflows/release-valdr-workflow.yml` runs manually or for a `valdr-workflow-v*` tag. It downloads and verifies the pinned Valdr CLI before building, uploading, and, for tag runs, publishing `valdr-workflow.valdr-pack.tar.gz`.
 
 For local verification:
 
@@ -328,9 +355,10 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## Requirements
 
-- [Valdr](https://valdr.ai) with the Valdr PM MCP server enabled
-- [Node.js](https://nodejs.org) (for `generate-valdr-pack.mjs`)
-- GNU Make (for build/sync targets)
+- [Valdr](https://valdr.ai) `0.3.0` with the Valdr PM MCP server enabled
+- Valdr Sovereign pack `0.3.0` before Workflow pack `0.13.0`
+- A configured project repository, launcher presets, eligible bot agents, and a human operator handle for Workflow entrypoints
+- [Node.js](https://nodejs.org) and GNU Make only when building or syncing from a source checkout
 
 ## Contributing
 
@@ -342,4 +370,4 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## License
 
-MIT
+[MIT](LICENSE)

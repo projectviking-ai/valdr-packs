@@ -1,0 +1,52 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.review-all
+  name: Review Task With All Reviewers
+  description: Run one code-review workflow for every staffed review assignment.
+  version: 0.2.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-review-all
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+    assignments:
+      type: array
+      required: true
+    launcherConfigKey:
+      type: string
+      required: true
+    sourceSessionUlid:
+      type: string
+      required: true
+    reviewId:
+      type: string
+      required: true
+  outputs:
+    children:
+      type: array
+      required: true
+  outputMappings:
+    children: "${steps.review_assignments.outputs.children}"
+  steps:
+    - key: review_assignments
+      name: Run every staffed reviewer
+      kind: subworkflow
+      workflow:
+        key: valdr-workflow.task.code-review
+        version: 0.4.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+        sourceSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+        reviewId: "${workflow.inputs.reviewId}"
+      forEach:
+        items: "${workflow.inputs.assignments}"
+        itemName: assignment
+        maxConcurrent: 1
+      outputs:
+        children: "$.normalized.children"

@@ -1,0 +1,156 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.idea-to-sprint
+  name: Execute Idea Through Sprint
+  description: Create and approve a plan from an idea task, execute its generated sprint, and publish the reviewed delivery as a pull request.
+  version: 0.20.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.idea-to-sprint
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    sprintName: { type: string, required: true }
+    startTs: { type: number, required: true }
+    endTs: { type: number, required: true }
+    planBranchSuffix: { type: string, required: false, default: "" }
+    planLauncherConfigKey:
+      type: string
+      required: true
+    routerLauncherConfigKey:
+      type: string
+      required: true
+    reviewerLauncherConfigKey:
+      type: string
+      required: true
+    schedulerLauncherConfigKey:
+      type: string
+      required: true
+    prWriterLauncherConfigKey:
+      type: string
+      required: true
+    operatorHandle:
+      type: string
+      required: true
+    remoteName: { type: string, required: false, default: origin }
+    initialDraft:
+      type: boolean
+      required: false
+      default: true
+  outputs:
+    taskKey: { type: string, required: true }
+    projectKey: { type: string, required: true }
+    planKey: { type: string, required: true }
+    specPath: { type: string, required: true }
+    planPath: { type: string, required: true }
+    finalTaskStatus: { type: string, required: true }
+    sprintId: { type: string, required: true }
+    taskKeys: { type: array, required: true }
+    preparationResults: { type: array, required: true }
+    scheduledTaskKeys: { type: array, required: true }
+    scheduleReasoning: { type: string, required: true }
+    schedulerSessionUlid: { type: string, required: true }
+    deliveryResults: { type: array, required: true }
+    sprintCloseOutcome: { type: string, required: true }
+    baseRef: { type: string, required: true }
+    headAtStart: { type: string, required: true }
+    deliveryBranch: { type: string, required: true }
+    pullRequestDecision: { type: string, required: true }
+    pullRequestPublicationOutcome: { type: string, required: false }
+    pullRequestNumber: { type: number, required: false }
+    pullRequestUrl: { type: string, required: false }
+  outputMappings:
+    taskKey: "${workflow.inputs.taskKey}"
+    projectKey: "${runtime.projectKey}"
+    planKey: "${steps.create_plan.outputs.planKey}"
+    specPath: "${steps.create_plan.outputs.specPath}"
+    planPath: "${steps.create_plan.outputs.planPath}"
+    finalTaskStatus: "${steps.create_plan.outputs.finalTaskStatus}"
+    sprintId: "${steps.execute_sprint.outputs.sprintId}"
+    taskKeys: "${steps.execute_sprint.outputs.taskKeys}"
+    preparationResults: "${steps.execute_sprint.outputs.preparationResults}"
+    scheduledTaskKeys: "${steps.execute_sprint.outputs.scheduledTaskKeys}"
+    scheduleReasoning: "${steps.execute_sprint.outputs.scheduleReasoning}"
+    schedulerSessionUlid: "${steps.execute_sprint.outputs.schedulerSessionUlid}"
+    deliveryResults: "${steps.execute_sprint.outputs.deliveryResults}"
+    sprintCloseOutcome: "${steps.execute_sprint.outputs.sprintCloseOutcome}"
+    baseRef: "${steps.create_plan.outputs.baseRef}"
+    headAtStart: "${steps.create_plan.outputs.headAtStart}"
+    deliveryBranch: "${steps.execute_sprint.outputs.planBranch}"
+    pullRequestDecision: "${steps.publish_pull_request.outputs.decision}"
+    pullRequestPublicationOutcome: "${steps.publish_pull_request.outputs.publicationOutcome}"
+    pullRequestNumber: "${steps.publish_pull_request.outputs.prNumber}"
+    pullRequestUrl: "${steps.publish_pull_request.outputs.prUrl}"
+  steps:
+    - key: create_plan
+      name: Create approved plan
+      kind: subworkflow
+      workflow:
+        key: valdr-workflow.plan.from-task
+        version: 0.10.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        launcherConfigKey: "${workflow.inputs.planLauncherConfigKey}"
+      outputs:
+        taskKey: $.normalized.child.outputs.taskKey
+        planKey: $.normalized.child.outputs.planKey
+        specPath: $.normalized.child.outputs.specPath
+        planPath: $.normalized.child.outputs.planPath
+        finalTaskStatus: $.normalized.child.outputs.finalTaskStatus
+        baseRef: $.normalized.child.outputs.baseRef
+        headAtStart: $.normalized.child.outputs.headAtStart
+
+    - key: execute_sprint
+      name: Execute generated sprint
+      kind: subworkflow
+      needs: [create_plan]
+      workflow:
+        key: valdr-workflow.sprint.from-plan
+        version: 0.16.0
+      inputs:
+        projectKey: "${runtime.projectKey}"
+        planKey: "${steps.create_plan.outputs.planKey}"
+        baseBranch: "${steps.create_plan.outputs.baseRef}"
+        expectedBaseSha: "${steps.create_plan.outputs.headAtStart}"
+        planBranchSuffix: "${workflow.inputs.planBranchSuffix}"
+        sprintName: "${workflow.inputs.sprintName}"
+        startTs: "${workflow.inputs.startTs}"
+        endTs: "${workflow.inputs.endTs}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        reviewerLauncherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+        schedulerLauncherConfigKey: "${workflow.inputs.schedulerLauncherConfigKey}"
+      outputs:
+        sprintId: $.normalized.child.outputs.sprintId
+        taskKeys: $.normalized.child.outputs.taskKeys
+        preparationResults: $.normalized.child.outputs.preparationResults
+        scheduledTaskKeys: $.normalized.child.outputs.scheduledTaskKeys
+        scheduleReasoning: $.normalized.child.outputs.scheduleReasoning
+        schedulerSessionUlid: $.normalized.child.outputs.schedulerSessionUlid
+        deliveryResults: $.normalized.child.outputs.deliveryResults
+        sprintCloseOutcome: $.normalized.child.outputs.sprintCloseOutcome
+        originBranch: $.normalized.child.outputs.originBranch
+        originSha: $.normalized.child.outputs.originSha
+        planBranch: $.normalized.child.outputs.planBranch
+
+    - key: publish_pull_request
+      name: Publish reviewed delivery
+      kind: subworkflow
+      needs: [execute_sprint]
+      workflow:
+        key: valdr-workflow.pull-request.create
+        version: 0.4.0
+      inputs:
+        projectKey: "${runtime.projectKey}"
+        baseBranch: "${steps.execute_sprint.outputs.originBranch}"
+        remoteName: "${workflow.inputs.remoteName}"
+        headBranch: "${steps.execute_sprint.outputs.planBranch}"
+        taskKey: "${workflow.inputs.taskKey}"
+        operatorHandle: "${workflow.inputs.operatorHandle}"
+        writerLauncherConfigKey: "${workflow.inputs.prWriterLauncherConfigKey}"
+        initialDraft: "${workflow.inputs.initialDraft}"
+      outputs:
+        decision: $.normalized.child.outputs.decision
+        publicationOutcome: $.normalized.child.outputs.publicationOutcome
+        prNumber: $.normalized.child.outputs.prNumber
+        prUrl: $.normalized.child.outputs.prUrl

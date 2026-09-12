@@ -1,6 +1,9 @@
 <!--<capability id="valdr.core.tools.pm-review" pack="valdr" role="integration">-->
 # Tool: pm_review
 
+For workflow-owned `publish` calls, omit `clientRequestId`: Valdr derives publication identity from the authenticated reviewer turn. Use the supplied review and assignment IDs; do not construct workflow request IDs. Non-workflow mutations retain their normal request-ID rules.
+
+
 Task review management operations. Use this tool for review lifecycle and lightweight review scores. Auditor workflows and score runs live in `pm_audit`.
 
 <!--<instructions>-->

@@ -1,0 +1,114 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.implement
+  name: Implement Task
+  description: Mark a task in progress, launch a named executor on a named preset, and wait for one implementation pass to finish.
+  version: 0.6.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-implement
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to implement.
+    executorHandle:
+      type: string
+      required: true
+      description: Agent that implements. Chosen upstream, not decided here.
+    launcherConfigKey:
+      type: string
+      required: true
+      description: Preset the implementation runs on. Chosen upstream, not decided here.
+    additionalInstructions:
+      type: string
+      required: false
+      description: Extra turn instructions, such as reviewer feedback on a repeat pass.
+    baseRef:
+      type: string
+      required: false
+      description: Optional exact local branch from which to create the linked task worktree.
+  outputs:
+    sessionUlid:
+      type: string
+      required: true
+      description: Implementation session used to bind a reviewer to the same worktree.
+    outcome:
+      type: string
+      required: true
+      description: Reconciled completion outcome for the implementation session.
+    baseRef:
+      type: string
+      required: true
+      description: Exact local branch captured when the linked task worktree was created.
+    headAtStart:
+      type: string
+      required: true
+      description: Exact local branch commit captured when the linked task worktree was created.
+  outputMappings:
+    sessionUlid: "${steps.implement.outputs.sessionUlid}"
+    outcome: "${steps.implement.outputs.outcome}"
+    baseRef: "${steps.implement.outputs.baseRef}"
+    headAtStart: "${steps.implement.outputs.headAtStart}"
+  steps:
+    - key: mark_in_progress
+      name: Mark in progress
+      kind: tool
+      tool:
+        id: pm_task
+        action: change_status
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: in_progress
+        reason: "Implementation starting."
+      outputs:
+        status: "$.normalized.task.status"
+
+    - key: implement
+      name: Implement task
+      kind: session
+      needs:
+        - mark_in_progress
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: "${workflow.inputs.executorHandle}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+        actor: "${runtime.actor}"
+        role: executor
+        worktree:
+          requireLinked: true
+          baseRef: "${workflow.inputs.baseRef}"
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        maxRuntimeSeconds: 3600
+        # Plain implementation instructions. The valdr-executor skill is deliberately
+        # not invoked: it runs the task lifecycle itself (status changes, launching a
+        # reviewer, completion comments), which duplicates what this workflow's own
+        # review and closeout steps do and produced a second reviewer per task.
+        prompt: |-
+          Implement task ${workflow.inputs.taskKey} in this worktree.
+          Load the task with pm_task get before editing. Treat its title, description,
+          acceptance checklist, and current comments as the authoritative scope.
+          Make the code changes and run the project's build, lint, and tests. Leave the
+          changes uncommitted in the worktree - this workflow reviews, commits, and
+          publishes them. Do not change task status, do not create reviews or launch
+          reviewers, and do not commit or push. Before you finish, check off each
+          acceptance checklist item you have verified (pm_task checklist_toggle);
+          reviewers treat an unchecked item as not delivered. When you are done,
+          reply with a short summary of what changed and how it was validated.
+          ${workflow.inputs.additionalInstructions}
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - implementation_complete
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+        worktreePath: "$.normalized.session.worktreePath"
+        baseRef: "$.normalized.session.baseRef"
+        headAtStart: "$.normalized.session.headAtStart"
+        outcome: "$.normalized.input.outcome"

@@ -1,0 +1,62 @@
+schemaVersion: 1.0
+agent:
+  handle: verdandi
+  name: Verdandi Workflow Orchestrator
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr-workflow
+    - workflow
+    - orchestrator
+    - authoring
+    - debugging
+capabilities:
+  - key: valdr-workflow.verdandi.system
+    role: core
+
+  # NOT hot-load. buildSystemPrompt filters hot-load capabilities out of the
+  # system prompt, and these two are the rules that stop Verdandi shipping a
+  # workflow that validates but cannot run. They must always be present.
+  - key: valdr-workflow.verdandi.hazards
+    role: constraints
+  - key: valdr-workflow.base.mcp-access
+    role: constraints
+
+  # Hot-load: large references pulled in when the task calls for them.
+  - key: valdr-workflow.verdandi.authoring
+    role: workflow
+    hot-load: true
+  - key: valdr-workflow.verdandi.operating
+    role: workflow
+    hot-load: true
+  - key: valdr-workflow.verdandi.debugging
+    role: workflow
+    hot-load: true
+
+  - key: valdr.core.tools.pm-workflow
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-session
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-review
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-audit
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-agent
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-provider
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-health
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-capability
+    role: integration
+    hot-load: true

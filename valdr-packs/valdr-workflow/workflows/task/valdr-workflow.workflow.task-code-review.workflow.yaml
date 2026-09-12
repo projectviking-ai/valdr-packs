@@ -1,0 +1,87 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.code-review
+  name: Code Review Task
+  description: Mark a task in review, launch a named reviewer against an existing implementation session, and wait for one published review verdict.
+  version: 0.4.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-code-review
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to review.
+    assignment:
+      type: object
+      required: true
+      description: Existing staffed assignment containing the reviewer handle and assignment ID.
+    launcherConfigKey:
+      type: string
+      required: true
+      description: Preset the reviewer runs on.
+    sourceSessionUlid:
+      type: string
+      required: true
+      description: Implementation session whose worktree the reviewer inspects. Binds the review to the exact work under review.
+    reviewId:
+      type: string
+      required: true
+      description: Existing staffed review the reviewer must publish against.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: review_approved or review_changes_requested, from durable review publication evidence.
+    reviewerSessionUlid:
+      type: string
+      required: true
+      description: Reviewer session that produced the verdict.
+  outputMappings:
+    outcome: "${steps.launch_review.outputs.outcome}"
+    reviewerSessionUlid: "${steps.launch_review.outputs.reviewerSessionUlid}"
+  steps:
+    - key: mark_in_review
+      name: Mark in review
+      kind: tool
+      tool:
+        id: pm_task
+        action: change_status
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: in_review
+        reason: "Implementation complete; routing to review."
+      outputs:
+        status: "$.normalized.task.status"
+
+    - key: launch_review
+      name: Launch reviewer
+      kind: review
+      needs:
+        - mark_in_review
+      review:
+        action: launch_reviewer
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+        reviewId: "${workflow.inputs.reviewId}"
+        assignmentId: "${workflow.inputs.assignment.id}"
+        agentHandle: "${workflow.inputs.assignment.reviewerHandle}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+        actor: "${runtime.actor}"
+        maxRuntimeSeconds: 3600
+        prompt: |-
+          Review the current worktree changes for this workflow task and publish exactly one PM review.
+          Task ${workflow.inputs.taskKey}
+          Use reviewId: ${workflow.inputs.reviewId}
+          Use assignmentId: ${workflow.inputs.assignment.id}
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - review_approved
+          - review_changes_requested
+      outputs:
+        reviewerSessionUlid: "$.normalized.session.sessionUlid"
+        outcome: "$.normalized.input.outcome"

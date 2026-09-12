@@ -1,0 +1,286 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.deliver
+  name: Deliver Task
+  description: Take one prepared task from to-do to verified. Reads the executor and reviewer that prep already staffed, picks a launcher preset, then implements and reviews, looping on requested changes.
+  version: 0.11.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-delivery
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to deliver. Must already be prepared - staffed with an assignee and a review.
+    routerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the preset-router itself runs on. Must honour a strict JSON output contract.
+    baseRef:
+      type: string
+      required: false
+      description: Optional exact local branch from which the linked implementation worktree starts.
+    executorLauncherConfigKey:
+      type: string
+      required: false
+      default: ""
+      description: Preset the implementation falls back to when the preset router cannot distinguish the registered presets. Empty keeps preset_unknown as a blocking outcome.
+  outputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task delivered.
+    executorHandle:
+      type: string
+      required: true
+      description: Staffed executor read from the task.
+    reviewerHandle:
+      type: string
+      required: true
+      description: Staffed reviewer read from the review record.
+    presetKey:
+      type: string
+      required: true
+      description: Launcher preset chosen for this run.
+    reviewOutcome:
+      type: string
+      required: true
+      description: Final review outcome. review_approved on success; review_changes_requested means the loop exhausted.
+    implementationSessionUlid:
+      type: string
+      required: true
+      description: Implementation session reused across every review pass.
+    reviewedHeadSha: { type: string, required: true }
+    reviewedTreeSha: { type: string, required: true }
+    reviewedChangeDigest: { type: string, required: true }
+    reviewedDirtyPaths: { type: object, required: true }
+    reviewedDeliveryPaths: { type: object, required: true }
+    baseRef: { type: string, required: true }
+    headAtStart: { type: string, required: true }
+  outputMappings:
+    taskKey: "${workflow.inputs.taskKey}"
+    executorHandle: "${steps.load_task.outputs.assigneeHandle}"
+    reviewerHandle: "${steps.load_review.outputs.reviewerHandle}"
+    presetKey: "${steps.pick_preset.outputs.presetKey}"
+    reviewOutcome: "${steps.route_review.outputs.outcome}"
+    implementationSessionUlid: "${steps.do_implement.outputs.sessionUlid}"
+    reviewedHeadSha: "${steps.snapshot_changes.outputs.headSha}"
+    reviewedTreeSha: "${steps.snapshot_changes.outputs.candidateTreeSha}"
+    reviewedChangeDigest: "${steps.snapshot_changes.outputs.changeDigest}"
+    reviewedDirtyPaths: "${steps.snapshot_changes.outputs.dirtyPaths}"
+    reviewedDeliveryPaths: "${steps.snapshot_changes.outputs.deliveryPaths}"
+    baseRef: "${steps.snapshot_changes.outputs.baseRef}"
+    headAtStart: "${steps.snapshot_changes.outputs.headAtStart}"
+  steps:
+    # ---- Read what prep already decided. No judgement here: if the task is not
+    # ---- staffed these reads fail loudly rather than quietly re-deciding.
+    - key: load_task
+      name: Read staffed executor
+      kind: tool
+      tool:
+        id: pm_task
+        action: get
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        assigneeHandle: "$.normalized.task.assigneeHandle"
+        status: "$.normalized.task.status"
+        title: "$.normalized.task.title"
+
+    - key: load_review
+      name: Read staffed reviewer
+      kind: tool
+      needs:
+        - load_task
+      tool:
+        id: pm_review
+        action: list
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        reviewerHandle: "$.normalized.review.assignments[0].reviewerHandle"
+        assignments: "$.normalized.review.assignments"
+        reviewId: "$.normalized.review.id"
+
+    # ---- The only live decision in this workflow. A launcher preset has no task
+    # ---- field to persist into, so it cannot be staffed at prep time.
+    - key: pick_preset
+      name: Choose launcher preset
+      kind: subworkflow
+      needs:
+        - load_review
+      workflow:
+        key: valdr-workflow.task.choose-preset
+        version: 0.4.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        defaultPresetKey: "${workflow.inputs.executorLauncherConfigKey}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        presetKey: "$.normalized.child.outputs.presetKey"
+
+    - key: gate_preset
+      name: Gate on launcher preset
+      kind: condition
+      needs:
+        - pick_preset
+      checks:
+        - kind: value_equals
+          value: "${steps.pick_preset.outputs.outcome}"
+          equals: preset_decided
+      onFailure: { action: block }
+
+    # ---- Launch once. Review revisions below re-prompt this exact session so
+    # ---- every pass stays in the same linked worktree.
+    - key: do_implement
+      name: Implement
+      kind: subworkflow
+      needs:
+        - gate_preset
+      workflow:
+        key: valdr-workflow.task.implement
+        version: 0.6.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        executorHandle: "${steps.load_task.outputs.assigneeHandle}"
+        launcherConfigKey: "${steps.pick_preset.outputs.presetKey}"
+        baseRef: "${workflow.inputs.baseRef}"
+      outputs:
+        sessionUlid: "$.normalized.child.outputs.sessionUlid"
+        outcome: "$.normalized.child.outputs.outcome"
+        baseRef: "$.normalized.child.outputs.baseRef"
+        headAtStart: "$.normalized.child.outputs.headAtStart"
+
+    # ---- Review corridor. revise_implementation is skipped on pass one, then
+    # ---- re-prompts the original executor on each requested-changes pass.
+    - key: revise_implementation
+      name: Revise implementation
+      kind: session
+      needs:
+        - do_implement
+      when:
+        - kind: value_in
+          value: "${runtime.loop.currentPass}"
+          allowed: [2, 3]
+      session:
+        action: input
+        sessionUlid: "${steps.do_implement.outputs.sessionUlid}"
+        expectAgentHandle: "${steps.load_task.outputs.assigneeHandle}"
+        expectTaskKey: "${workflow.inputs.taskKey}"
+        prompt: |-
+          Continue implementing task ${workflow.inputs.taskKey} in this same linked worktree.
+          Load the current task and PM review feedback, address every requested change,
+          and keep the implementation within the task's authoritative scope. Leave the
+          changes uncommitted, do not change task status or launch reviewers, and reply
+          with a short summary when the revision is ready.
+      waitsFor:
+        kind: workflow_input
+        expected: [implementation_complete]
+      outputs:
+        outcome: "$.normalized.input.outcome"
+
+    - key: snapshot_changes
+      name: Snapshot implementation changes
+      kind: tool
+      needs:
+        - revise_implementation
+      tool:
+        id: git
+        action: status
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${steps.do_implement.outputs.sessionUlid}"
+      outputs:
+        outcome: "$.normalized.outcome"
+        sourceSessionUlid: "$.normalized.sourceSessionUlid"
+        branchName: "$.normalized.branchName"
+        baseRef: "$.normalized.baseRef"
+        headAtStart: "$.normalized.headAtStart"
+        headSha: "$.normalized.headSha"
+        candidateTreeSha: "$.normalized.candidateTreeSha"
+        changeDigest: "$.normalized.changeDigest"
+        dirtyPaths: "$.normalized.dirtyPaths"
+        deliveryPaths: "$.normalized.deliveryPaths"
+
+    - key: accept_snapshot
+      name: Accept linked-worktree snapshot
+      kind: condition
+      needs:
+        - snapshot_changes
+      checks:
+        - kind: value_equals
+          value: "${steps.snapshot_changes.outputs.outcome}"
+          equals: snapshotted
+      onFailure: { action: block }
+
+    - key: do_review
+      name: Review
+      kind: subworkflow
+      needs:
+        - accept_snapshot
+      workflow:
+        key: valdr-workflow.task.review-all
+        version: 0.2.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        assignments: "${steps.load_review.outputs.assignments}"
+        launcherConfigKey: "${steps.pick_preset.outputs.presetKey}"
+        sourceSessionUlid: "${steps.do_implement.outputs.sessionUlid}"
+        reviewId: "${steps.load_review.outputs.reviewId}"
+      outputs:
+        children: "$.normalized.child.outputs.children"
+
+    - key: reload_review
+      name: Reload aggregate review status
+      kind: tool
+      needs:
+        - do_review
+      tool:
+        id: pm_review
+        action: list
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        status: "$.normalized.review.status"
+
+    - key: route_review
+      name: Route review outcome
+      kind: condition
+      needs:
+        - reload_review
+      checks:
+        - kind: value_equals
+          value: "${steps.reload_review.outputs.status}"
+          equals: approved
+          domain:
+            - pending
+            - in_progress
+            - approved
+            - changes_requested
+      outputs:
+        outcome: review_approved
+      onFailure:
+        action: loop_back
+        to: revise_implementation
+        max: 3
+        exhausted: block
+    # ---- Corridor ends. Reaching here means the review was approved.
+
+    - key: mark_verified
+      name: Mark verified
+      kind: tool
+      needs:
+        - route_review
+      tool:
+        id: pm_task
+        action: change_status
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: verified
+        reason: "Review approved."
+      outputs:
+        status: "$.normalized.task.status"

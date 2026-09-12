@@ -1,0 +1,144 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.plan.plan-cycle
+  name: Create And Review Plan
+  description: Write and review one VMP plan, routing requested changes back to the original writer session.
+  version: 0.3.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.plan-cycle
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    taskSlug: { type: string, required: true }
+    sourceSessionUlid: { type: string, required: true }
+    launcherConfigKey: { type: string, required: true }
+  outputs:
+    path: { type: string, required: true }
+    outcome: { type: string, required: true }
+    writerSessionUlid: { type: string, required: true }
+    reviewerSessionUlid: { type: string, required: true }
+    reviewId: { type: string, required: true }
+    reviewPath: { type: string, required: true }
+  outputMappings:
+    path: "projects/${workflow.inputs.taskSlug}/plan.md"
+    outcome: "${steps.route_review.outputs.outcome}"
+    writerSessionUlid: "${steps.launch_writer.outputs.sessionUlid}"
+    reviewerSessionUlid: "${steps.launch_reviewer.outputs.sessionUlid}"
+    reviewId: "${steps.start_review.outputs.reviewId}"
+    reviewPath: "projects/${workflow.inputs.taskSlug}/plan-review.md"
+  steps:
+    - key: launch_writer
+      name: Launch plan writer
+      kind: session
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: plan-writer
+        sourceSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+        actor: "${runtime.actor}"
+        role: planner
+        run: false
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+
+    - key: start_review
+      name: Start plan review
+      kind: tool
+      needs: [launch_writer]
+      tool: { id: pm_review, action: start }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        reviewerHandles: [plan-reviewer]
+        requestedByHandle: "${runtime.actor}"
+        summary: Review projects/${workflow.inputs.taskSlug}/plan.md.
+      outputs:
+        reviewId: "$.normalized.review.id"
+        assignmentId: "$.normalized.review.assignments[0].id"
+
+    - key: launch_reviewer
+      name: Launch plan reviewer
+      kind: review
+      needs: [start_review]
+      review:
+        action: launch_reviewer
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${steps.launch_writer.outputs.sessionUlid}"
+        agentHandle: plan-reviewer
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+        actor: "${runtime.actor}"
+        role: reviewer
+        run: false
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+
+    - key: write_plan
+      name: Write plan
+      kind: session
+      needs: [launch_reviewer]
+      session:
+        action: input
+        sessionUlid: "${steps.launch_writer.outputs.sessionUlid}"
+        prompt: |-
+          Write or revise projects/${workflow.inputs.taskSlug}/plan.md for task ${workflow.inputs.taskKey}.
+          Read the approved specification and current PM review feedback when revising. Return only the write JSON receipt required by your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected: [written]
+      gates:
+        - key: plan_write_receipt
+          kind: session_output
+          source:
+            sessionUlid: "${steps.launch_writer.outputs.sessionUlid}"
+            event: final_agent_message
+          extract: { format: json, path: $.outcome }
+          outcomes: { written: written }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+
+    - key: review_plan
+      name: Review plan
+      kind: session
+      needs: [write_plan]
+      session:
+        action: input
+        sessionUlid: "${steps.launch_reviewer.outputs.sessionUlid}"
+        prompt: |-
+          Review projects/${workflow.inputs.taskSlug}/plan.md against the approved specification for task ${workflow.inputs.taskKey}.
+          Write projects/${workflow.inputs.taskSlug}/plan-review.md and publish exactly one PM review.
+          Use reviewId: ${steps.start_review.outputs.reviewId}
+          Use assignmentId: ${steps.start_review.outputs.assignmentId}
+          Use scoredHandle: plan-writer
+          Use clientRequestId: ${runtime.clientRequestId}:publish
+          Use sourceSessionUlid: ${steps.launch_reviewer.outputs.sessionUlid}
+          Include a numeric score and a short review body. Return only the review JSON receipt required by your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected: [review_approved, review_changes_requested]
+      outputs:
+        outcome: "$.normalized.input.outcome"
+
+    - key: route_review
+      name: Route plan review outcome
+      kind: condition
+      needs: [review_plan]
+      checks:
+        - kind: value_equals
+          value: "${steps.review_plan.outputs.outcome}"
+          equals: review_approved
+          domain: [review_approved, review_changes_requested]
+      outputs:
+        outcome: "${steps.review_plan.outputs.outcome}"
+      onFailure:
+        action: loop_back
+        to: write_plan
+        max: 10
+        exhausted: block

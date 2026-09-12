@@ -41,6 +41,8 @@ tags: [valdr, agents]
 includes:
   - path: valdr
     description: Core Valdr agents and capabilities.
+  - path: workflows
+    description: Workflow definitions shipped by the pack.
 ```
 
 - `authors`: list of author objects (`name` required, `handle` optional).
@@ -53,6 +55,7 @@ includes:
 ## Discovery Rules
 
 - Tooling reads `pack.yaml` and scans only the `includes` paths (or pack root if omitted).
+- Workflows are discovered from canonical `*.workflow.yaml` and `*.workflow.yml` files under the included paths.
 - Capabilities and prompts are discovered from Markdown headers:
   - `<!--<capability id="..." pack="..." role="..." category="..." prompt-tags="tag-a,tag-b">-->`
   - `<!--<prompt key="..." pack="..." role="..." tags="tag-a,tag-b">-->`

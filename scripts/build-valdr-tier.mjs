@@ -88,6 +88,9 @@ const renderPackYaml = (tierConfig) => {
     `name: ${quoteYamlString(tierConfig.name)}`,
     `version: ${quoteYamlString(VALDR_PACK_VERSION)}`,
     `description: ${quoteYamlString(tierConfig.description)}`,
+    `license: ${quoteYamlString("MIT")}`,
+    `homepage: ${quoteYamlString("https://valdr.ai")}`,
+    `repository: ${quoteYamlString("https://github.com/projectviking-ai/valdr-packs")}`,
     "includes:"
   ];
   for (const include of tierConfig.includes) {

@@ -7,10 +7,12 @@ on:
     paths:
       - skills/**
       - commands/**
-      - valdr-packs/**
-      - scripts/**
+      - valdr-packs/valdr/**
+      - scripts/build-valdr-tier.mjs
+      - scripts/generate-valdr-pack.mjs
+      - scripts/validate-valdr-pack.mjs
+      - scripts/lib/**
       - VERSION
-      - .github/workflows/release.yml
 
 permissions:
   contents: write

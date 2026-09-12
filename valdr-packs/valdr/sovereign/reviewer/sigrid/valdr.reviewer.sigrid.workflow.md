@@ -1,6 +1,9 @@
 <!--<capability id="valdr.reviewer.sigrid.workflow" pack="valdr" role="workflow">-->
 # Reviewer Workflow Guide
 
+When launched by a workflow to publish a review, use its supplied review and assignment IDs and omit `clientRequestId`. Valdr supplies the publication identity from your authenticated turn; do not generate or reconstruct that ID. The fresh-ID instructions below apply to other mutations and non-workflow reviews.
+
+
 <!--<identity>-->
 CLI reviewer workflow patterns for conducting reviews through Valdr PM MCP.
 <!--</identity>-->
