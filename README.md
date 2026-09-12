@@ -7,17 +7,17 @@ Valdr packs are portable, self-describing bundles of agents, prompts, and capabi
 
 ## Quick Start
 
-Use this supported compatibility tuple:
+Download the Sovereign and Workflow packs from the same release and use that release's pinned Valdr CLI:
 
-| Component | Version | Release asset |
-| --- | --- | --- |
-| Valdr CLI | `0.3.0` | `valdr-v0.3.0-macos-arm64.tar.gz` plus its `.sha256` |
-| Valdr Sovereign pack | `valdr@0.3.0` | `valdr-sovereign.valdr-pack.tar.gz` |
-| Valdr Workflow pack | `valdr-workflow@0.13.0` | `valdr-workflow.valdr-pack.tar.gz` |
+| Component | Release asset |
+| --- | --- |
+| Valdr CLI | `valdr-v<cli-version>-macos-arm64.tar.gz` plus its `.sha256` |
+| Valdr Sovereign pack | `valdr-sovereign.valdr-pack.tar.gz` |
+| Valdr Workflow pack | `valdr-workflow.valdr-pack.tar.gz` |
 
-1. Download Valdr 0.3.0 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases).
-2. Download `valdr-sovereign.valdr-pack.tar.gz` from [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
-3. Download `valdr-workflow.valdr-pack.tar.gz` from the same releases page.
+1. Read [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag, then download that CLI version from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases).
+2. Download `valdr-sovereign.valdr-pack.tar.gz` from your chosen release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
+3. Download `valdr-workflow.valdr-pack.tar.gz` from that same release.
 4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow pack. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
 5. Configure launcher presets, register eligible bot agents, and attach a Git repository project before starting a workflow.
 
@@ -207,7 +207,7 @@ An independently versioned companion to Sovereign that adds 24 workflow definiti
 | `build-valdr-raider` | Build the Raider tier archive |
 | `build-valdr-vanguard` | Build the Vanguard tier archive |
 | `build-valdr-sovereign` | Build the Sovereign tier archive |
-| `build-valdr-all` | Build all three tier archives |
+| `build-valdr-all` | Build Raider, Vanguard, Sovereign, and Workflow archives with the pinned CLI |
 
 ### Generating Pack Archives
 
@@ -243,16 +243,17 @@ The pack-set release version lives in the root [`VERSION`](VERSION) file.
 node scripts/bump-version.mjs patch
 node scripts/bump-version.mjs minor
 node scripts/bump-version.mjs major
-node scripts/bump-version.mjs 1.2.0
+node scripts/bump-version.mjs "<version>"
 ```
 
-All three tier archives share that version, and the release workflow publishes them under a matching GitHub Release tag such as `v0.1.0`.
+For any pack update, including Workflow changes, bump `VERSION` and merge to `main`. GitHub Actions validates and builds all four archives, creates the matching tag, and publishes one GitHub Release containing Raider, Vanguard, Sovereign, and Workflow. No manual tag creation, build, or release trigger is needed. An existing release tag is rejected; use a new version for each release.
+
+The three tier archives use the repository version internally. The Workflow archive retains its definition version from [`valdr-packs/valdr-workflow/pack.yaml`](valdr-packs/valdr-workflow/pack.yaml); it is distributed in the same repository release.
 
 ### CI Automation
 
 - Pull requests run pack validation and script tests through `.github/workflows/validate.yml`.
-- Pushes to `main` trigger `.github/workflows/release.yml` only for changes under `skills/**`, `commands/**`, `valdr-packs/valdr/**`, `scripts/build-valdr-tier.mjs`, `scripts/generate-valdr-pack.mjs`, `scripts/validate-valdr-pack.mjs`, `scripts/lib/**`, or `VERSION`. That workflow validates the repository, builds the Raider, Vanguard, and Sovereign archives, then publishes them to the matching `v<version>` GitHub Release.
-- `.github/workflows/release-valdr-workflow.yml` runs manually or for a `valdr-workflow-v*` tag. It downloads and verifies the pinned Valdr CLI before building, uploading, and, for tag runs, publishing `valdr-workflow.valdr-pack.tar.gz`.
+- Pushes to `main` trigger `.github/workflows/release.yml` for pack sources, shared build scripts, `VERSION`, `VALDR_WORKFLOW_CLI_VERSION`, `Makefile`, or the release workflow itself. It verifies the pinned Valdr CLI, validates the repository, builds all four archives, and publishes them to one `v<version>` GitHub Release for the pushed commit.
 
 For local verification:
 
@@ -355,8 +356,8 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## Requirements
 
-- [Valdr](https://valdr.ai) `0.3.0` with the Valdr PM MCP server enabled
-- Valdr Sovereign pack `0.3.0` before Workflow pack `0.13.0`
+- [Valdr](https://valdr.ai) with the Valdr PM MCP server enabled, using the CLI version pinned for your pack release
+- Valdr Sovereign pack imported before the Workflow pack from the same release
 - A configured project repository, launcher presets, eligible bot agents, and a human operator handle for Workflow entrypoints
 - [Node.js](https://nodejs.org) and GNU Make only when building or syncing from a source checkout
 

@@ -8,18 +8,22 @@ on:
       - skills/**
       - commands/**
       - valdr-packs/valdr/**
+      - valdr-packs/valdr-workflow/**
       - scripts/build-valdr-tier.mjs
       - scripts/generate-valdr-pack.mjs
       - scripts/validate-valdr-pack.mjs
       - scripts/lib/**
       - VERSION
+      - VALDR_WORKFLOW_CLI_VERSION
+      - Makefile
+      - .github/workflows/release.yml
 
 permissions:
   contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: macos-14
 
     steps:
       - name: Check out repository
@@ -36,17 +40,63 @@ jobs:
 
       - name: Fail if release tag already exists
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.value }}
         run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null 2>&1; then
-            echo "Tag v${VERSION} already exists." >&2
+          if response="$(gh api --method GET "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${VERSION}" --include --silent 2>/dev/null)"; then
+            gh_status=0
+          else
+            gh_status=$?
+          fi
+          status="$(printf '%s\n' "$response" | awk '/^HTTP\// { status = $2 } END { print status }')"
+          case "$status" in
+            200) echo "Tag v${VERSION} already exists. Bump VERSION before releasing." >&2; exit 1 ;;
+            404) ;;
+            *) echo "Could not determine whether tag v${VERSION} exists (gh exit $gh_status, HTTP ${status:-none})." >&2; exit 1 ;;
+          esac
+
+      - name: Read pinned Valdr CLI version
+        id: cli-version
+        run: |
+          CLI_VERSION="$(tr -d '\n' < VALDR_WORKFLOW_CLI_VERSION)"
+          if [ -z "$CLI_VERSION" ]; then
+            echo "Pinned Valdr CLI version must be nonempty." >&2
             exit 1
           fi
+          echo "value=${CLI_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download pinned Valdr CLI
+        env:
+          CLI_VERSION: ${{ steps.cli-version.outputs.value }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-cli
+          cd release-cli
+          gh release download "v${CLI_VERSION}" --repo projectviking-ai/valdr-releases \
+            --pattern "valdr-v${CLI_VERSION}-macos-arm64.tar.gz" \
+            --pattern "valdr-v${CLI_VERSION}-macos-arm64.tar.gz.sha256"
+
+      - name: Verify and extract pinned Valdr CLI
+        id: valdr
+        env:
+          CLI_VERSION: ${{ steps.cli-version.outputs.value }}
+        run: |
+          cd release-cli
+          shasum -a 256 -c "valdr-v${CLI_VERSION}-macos-arm64.tar.gz.sha256"
+          tar -xzf "valdr-v${CLI_VERSION}-macos-arm64.tar.gz"
+          actual_version="$(bin/valdr version | awk 'NR == 1 { print $2 }')"
+          if [ -z "$actual_version" ] || [ "$actual_version" != "$CLI_VERSION" ]; then
+            echo "Expected Valdr CLI ${CLI_VERSION}, got: $actual_version" >&2
+            exit 1
+          fi
+          echo "path=$(pwd)/bin/valdr" >> "$GITHUB_OUTPUT"
 
       - name: Validate packs and run script tests
         run: make ci-validate
 
       - name: Build release archives
+        env:
+          VALDR_BIN: ${{ steps.valdr.outputs.path }}
         run: make build-valdr-all
 
       - name: Create GitHub Release
@@ -58,6 +108,7 @@ jobs:
             build/valdr-raider.valdr-pack.tar.gz \
             build/valdr-vanguard.valdr-pack.tar.gz \
             build/valdr-sovereign.valdr-pack.tar.gz \
+            build/valdr-workflow.valdr-pack.tar.gz \
             --target "${GITHUB_SHA}" \
             --title "v${VERSION}" \
             --notes "Valdr pack release v${VERSION}"
