@@ -1,0 +1,188 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.closeout
+  name: Close Out Task
+  description: Commit one approved delivery receipt, optionally fast-forward its recorded base branch, then mark the task done. Set markDone false when a later publication step must keep the task verified until it completes.
+  version: 0.2.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-closeout
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    deliveryRunUlid: { type: string, required: true }
+    mergeTargetBranch: { type: string, required: false, default: "" }
+    markDone:
+      type: boolean
+      required: false
+      default: true
+      description: Mark the task done after the commit. Set false to leave it verified until a later publication or final status transition completes.
+  outputs:
+    taskKey: { type: string, required: true }
+    deliveryRunUlid: { type: string, required: true }
+    implementationSessionUlid: { type: string, required: true }
+    branchName: { type: string, required: true }
+    baseRef: { type: string, required: true }
+    headAtStart: { type: string, required: true }
+    commitSha: { type: string, required: true }
+    mergeOutcome: { type: string, required: false }
+    finalTaskStatus: { type: string, required: true }
+  outputMappings:
+    taskKey: "${workflow.inputs.taskKey}"
+    deliveryRunUlid: "${workflow.inputs.deliveryRunUlid}"
+    implementationSessionUlid: "${steps.load_delivery.outputs.implementationSessionUlid}"
+    branchName: "${steps.commit_reviewed.outputs.branchName}"
+    baseRef: "${steps.load_delivery.outputs.baseRef}"
+    headAtStart: "${steps.load_delivery.outputs.headAtStart}"
+    commitSha: "${steps.commit_reviewed.outputs.commitSha}"
+    mergeOutcome: "${steps.merge_plan_branch.outputs.outcome}"
+    finalTaskStatus: "${steps.reload_task.outputs.status}"
+  steps:
+    - key: load_task
+      name: Load verified task
+      kind: tool
+      tool: { id: pm_task, action: get }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        status: "$.normalized.task.status"
+
+    - key: load_review
+      name: Load approved review
+      kind: tool
+      needs: [load_task]
+      tool: { id: pm_review, action: list }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        status: "$.normalized.review.status"
+
+    - key: load_delivery
+      name: Load approved delivery receipt
+      kind: tool
+      needs: [load_review]
+      tool: { id: pm_workflow, action: get_run }
+      inputs:
+        runUlid: "${workflow.inputs.deliveryRunUlid}"
+      outputs:
+        workflowKey: "$.normalized.run.workflowKey"
+        projectKey: "$.normalized.run.projectKey"
+        taskKey: "$.normalized.run.taskKey"
+        status: "$.normalized.run.status"
+        implementationSessionUlid: "$.normalized.run.outputJson.implementationSessionUlid"
+        reviewOutcome: "$.normalized.run.outputJson.reviewOutcome"
+        baseRef: "$.normalized.run.outputJson.baseRef"
+        headAtStart: "$.normalized.run.outputJson.headAtStart"
+
+    - key: validate_closeout
+      name: Validate task, review, and delivery
+      kind: condition
+      needs: [load_delivery]
+      checks:
+        - { kind: value_equals, value: "${steps.load_task.outputs.status}", equals: verified }
+        - { kind: value_equals, value: "${steps.load_review.outputs.status}", equals: approved }
+        - { kind: value_equals, value: "${steps.load_delivery.outputs.workflowKey}", equals: valdr-workflow.task.deliver }
+        - { kind: value_equals, value: "${steps.load_delivery.outputs.status}", equals: completed }
+        - { kind: value_equals, value: "${steps.load_delivery.outputs.projectKey}", equals: "${runtime.projectKey}" }
+        - { kind: value_equals, value: "${steps.load_delivery.outputs.taskKey}", equals: "${workflow.inputs.taskKey}" }
+        - { kind: value_equals, value: "${steps.load_delivery.outputs.reviewOutcome}", equals: review_approved }
+      onFailure: { action: block }
+
+    - key: validate_merge_target
+      name: Validate optional merge target
+      kind: condition
+      needs: [validate_closeout]
+      checks:
+        - kind: value_in
+          value: "${workflow.inputs.mergeTargetBranch}"
+          allowed:
+            - ""
+            - "${steps.load_delivery.outputs.baseRef}"
+      onFailure: { action: block }
+
+    - key: commit_reviewed
+      name: Commit reviewed delivery
+      kind: tool
+      needs: [validate_merge_target]
+      tool: { id: git, action: commit }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${steps.load_delivery.outputs.implementationSessionUlid}"
+        deliveryRunUlid: "${workflow.inputs.deliveryRunUlid}"
+        message: "Implement ${workflow.inputs.taskKey}"
+      outputs:
+        outcome: "$.normalized.outcome"
+        branchName: "$.normalized.branchName"
+        commitSha: "$.normalized.commitSha"
+        warnings: "$.normalized.warnings"
+
+    - key: accept_commit
+      name: Accept completed commit
+      kind: condition
+      needs: [commit_reviewed]
+      checks:
+        - kind: value_in
+          value: "${steps.commit_reviewed.outputs.outcome}"
+          allowed: [committed, existing, unchanged]
+      onFailure: { action: block }
+
+    - key: merge_plan_branch
+      name: Fast-forward recorded base branch
+      kind: tool
+      needs: [accept_commit]
+      when:
+        - kind: value_equals
+          value: "${workflow.inputs.mergeTargetBranch}"
+          equals: "${steps.load_delivery.outputs.baseRef}"
+      tool: { id: git, action: merge }
+      inputs:
+        sourceSha: "${steps.commit_reviewed.outputs.commitSha}"
+        targetBranch: "${workflow.inputs.mergeTargetBranch}"
+        expectedTargetSha: "${steps.load_delivery.outputs.headAtStart}"
+      outputs:
+        outcome: "$.normalized.outcome"
+        observedTargetSha: "$.normalized.observedTargetSha"
+        recommendedAction: "$.normalized.recommendedAction"
+
+    - key: accept_merge
+      name: Accept optional fast-forward
+      kind: condition
+      needs: [merge_plan_branch]
+      when:
+        - kind: value_equals
+          value: "${workflow.inputs.mergeTargetBranch}"
+          equals: "${steps.load_delivery.outputs.baseRef}"
+      checks:
+        - kind: value_in
+          value: "${steps.merge_plan_branch.outputs.outcome}"
+          allowed: [merged, existing]
+      onFailure: { action: block }
+
+    - key: mark_done
+      name: Mark task done
+      kind: tool
+      needs: [accept_merge]
+      when:
+        - kind: value_equals
+          value: "${workflow.inputs.markDone}"
+          equals: true
+      tool: { id: pm_task, action: change_status }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: done
+        reason: Reviewed Git delivery closed out.
+      outputs:
+        status: "$.normalized.task.status"
+
+    # Always runs, so finalTaskStatus is real whether or not mark_done ran:
+    # done when it did, verified when the caller deferred the transition.
+    - key: reload_task
+      name: Reload final task status
+      kind: tool
+      needs: [mark_done]
+      tool: { id: pm_task, action: get }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        status: "$.normalized.task.status"

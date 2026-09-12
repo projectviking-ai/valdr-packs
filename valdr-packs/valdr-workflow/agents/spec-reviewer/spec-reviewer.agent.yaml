@@ -1,0 +1,14 @@
+schemaVersion: 1.0
+agent:
+  handle: spec-reviewer
+  name: Spec Reviewer
+  kind: bot
+  defaultRole: reviewer
+  tags: [valdr-workflow, planning, specification, review]
+capabilities:
+  - key: valdr-workflow.spec-reviewer.system
+    role: core
+  - key: valdr-workflow.plan-from-task.artifacts
+    role: constraints
+  - key: valdr-workflow.base.mcp-access
+    role: constraints

@@ -3,6 +3,7 @@
 /.agents/
 /.gemini/
 /.valdr/
+/.mcp.json
 /build
 /valdr-packs.iml
 .DS_Store

@@ -1,0 +1,97 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.size
+  name: Size Task
+  description: Estimate story points for one task and write them to it. Priority is deliberately not set - effort and urgency are different judgements. Skips tasks that already have an estimate. Reusable outside a sprint - a backlog sizing pass is this workflow repeated.
+  version: 0.4.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-sizing
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to size.
+    sizerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the sizer runs on. Must honour a strict JSON output contract.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: task_sized, task_needs_split when the work is more than one shippable change, or task_size_unknown.
+    points:
+      type: string
+      required: true
+      description: Assigned story points, or 0 when not sized.
+    sizerSessionUlid:
+      type: string
+      required: true
+      description: Sizer session that produced the estimate.
+  outputMappings:
+    outcome: "${steps.size_task.outputs.outcome}"
+    points: "${steps.size_task.outputs.points}"
+    sizerSessionUlid: "${steps.size_task.outputs.sessionUlid}"
+  steps:
+    - key: size_task
+      name: Size task
+      kind: session
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: task-sizer
+        launcherConfigKey: "${workflow.inputs.sizerLauncherConfigKey}"
+        actor: "${runtime.actor}"
+        role: planner
+        # Close the session as soon as its turn ends. The presets carry
+        # keepAliveMs 120000, which leaves a finished session idle for two
+        # minutes, and a second launch for the same task, role, and agent
+        # inside that window is rejected as a conflict. Both knobs at zero
+        # take the launcher's immediate markClosed branch instead.
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        maxRuntimeSeconds: 900
+        # Replaces the builder's default turn instruction, which otherwise tells
+        # the session to IMPLEMENT the task.
+        prompt: |
+          Size task ${workflow.inputs.taskKey}.
+
+          Do NOT implement this task and do NOT edit any file. Read the task
+          through the in-session Valdr MCP tools, apply the sizing guide in your
+          system prompt, and write points to the task only if it does not
+          already have them. Never set priority.
+
+          Your entire final message must be the single JSON object defined by
+          your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - task_sized
+          - task_needs_split
+          - task_size_unknown
+      gates:
+        - key: size_result
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract:
+            format: json
+            path: $.outcome
+          outcomes:
+            sized: task_sized
+            needs_split: task_needs_split
+            unknown: task_size_unknown
+          onInvalid:
+            action: block
+          payload:
+            includeParsed: true
+            includeSession: false
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+        outcome: "$.normalized.input.outcome"
+        points: "$.normalized.input.payload.gate.parsed.points"

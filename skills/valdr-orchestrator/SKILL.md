@@ -5,7 +5,7 @@ metadata:
   version: 1.0.0
 compatibility: Requires Valdr MCP server with PM MCP tools enabled.
 license: MIT
-allowed-tools: mcp__valdr__pm_health mcp__valdr__pm_generate_ulid mcp__valdr__pm_project mcp__valdr__pm_sprint mcp__valdr__pm_task mcp__valdr__pm_review mcp__valdr__pm_agent mcp__valdr__pm_prompt mcp__valdr__pm_capability mcp__valdr__pm_session mcp__valdr__vmp
+allowed-tools: mcp__valdr__pm_health mcp__valdr__pm_generate_ulid mcp__valdr__pm_project mcp__valdr__pm_sprint mcp__valdr__pm_task mcp__valdr__pm_review mcp__valdr__pm_agent mcp__valdr__pm_prompt mcp__valdr__pm_capability mcp__valdr__pm_session mcp__valdr__pm_workflow mcp__valdr__vmp
 ---
 
 # Orchestrator Guide

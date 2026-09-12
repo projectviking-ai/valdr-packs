@@ -1,0 +1,108 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.choose-preset
+  name: Choose Launcher Preset
+  description: Ask the launcher-preset-router agent which registered preset a task should run on, and publish the decision through a gated wait. Designed to be called as a subworkflow.
+  version: 0.4.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.preset-routing
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task whose launcher preset should be chosen.
+    routerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the router itself runs on. Must expose the valdr MCP server, and must be capable enough to honour a strict JSON output contract.
+    defaultPresetKey:
+      type: string
+      required: false
+      default: ""
+      description: Preset to fall back to when nothing in the registry distinguishes the candidates. Must be a registered key. With a default set, the router only returns preset_unknown when the default itself is missing from the listing. Leave empty to keep unknown as a possible answer.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: preset_decided when a preset was chosen, preset_unknown when nothing distinguished the candidates.
+    presetKey:
+      type: string
+      required: true
+      description: Chosen preset key, or the literal "unknown" when the router could not decide.
+    routerSessionUlid:
+      type: string
+      required: true
+      description: Router session that produced the decision.
+  outputMappings:
+    outcome: "${steps.choose_preset.outputs.outcome}"
+    presetKey: "${steps.choose_preset.outputs.presetKey}"
+    routerSessionUlid: "${steps.choose_preset.outputs.sessionUlid}"
+  steps:
+    - key: choose_preset
+      name: Choose launcher preset
+      kind: session
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: launcher-preset-router
+        launcherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        actor: "${runtime.actor}"
+        role: orchestrator
+        maxRuntimeSeconds: 900
+        # Replaces the builder's default turn instruction, which otherwise tells
+        # the session to IMPLEMENT the task. The routing policy and the JSON
+        # output contract come from the agent's registered capabilities.
+        prompt: |
+          Choose the launcher preset this task should be implemented with.
+
+          Task Key: ${workflow.inputs.taskKey}
+
+          Retrieve the task at the source:
+
+              pm_task { action: "get", taskKey: "${workflow.inputs.taskKey}" }
+
+          Do NOT implement this task and do NOT edit any file. Read the task and
+          the registered presets through the in-session Valdr MCP tools, apply
+          your routing policy, and return your decision.
+
+          Default preset key: "${workflow.inputs.defaultPresetKey}"
+
+          If the default preset key above is non-empty and appears verbatim in
+          this turn's preset listing, treat it as a Level 1 explicit instruction
+          for the indistinguishable case: whenever the policy would otherwise
+          end at "unknown", return outcome "decided" with that key and
+          decidedAt "default". A preset the policy does distinguish still wins
+          over the default. Return outcome "unknown" only when no default was
+          given, or the default is not in the listing.
+
+          Your entire final message must be the single JSON object defined by
+          your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - preset_decided
+          - preset_unknown
+      gates:
+        - key: preset_choice
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract:
+            format: json
+            path: $.outcome
+          outcomes:
+            decided: preset_decided
+            unknown: preset_unknown
+          onInvalid:
+            action: block
+          payload:
+            includeParsed: true
+            includeSession: false
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+        outcome: "$.normalized.input.outcome"
+        presetKey: "$.normalized.input.payload.gate.parsed.presetKey"

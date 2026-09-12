@@ -1,0 +1,141 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.plan.idea-readiness
+  name: Validate Idea For Planning
+  description: Validate one idea task, collect human clarification when needed, and move a ready task to to-do.
+  version: 0.4.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.plan-idea-readiness
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    launcherConfigKey:
+      type: string
+      required: true
+  outputs:
+    outcome: { type: string, required: true }
+    taskSlug: { type: string, required: true }
+    validatorSessionUlid: { type: string, required: true }
+    summary: { type: string, required: true }
+    taskStatus: { type: string, required: true }
+    baseRef: { type: string, required: true }
+    headAtStart: { type: string, required: true }
+  outputMappings:
+    outcome: "${steps.launch_validator.outputs.outcome}"
+    taskSlug: "${steps.launch_validator.outputs.taskSlug}"
+    validatorSessionUlid: "${steps.launch_validator.outputs.sessionUlid}"
+    summary: "${steps.launch_validator.outputs.summary}"
+    taskStatus: "${steps.mark_to_do.outputs.status}"
+    baseRef: "${steps.launch_validator.outputs.baseRef}"
+    headAtStart: "${steps.launch_validator.outputs.headAtStart}"
+  steps:
+    - key: load_task
+      name: Load source task
+      kind: tool
+      tool: { id: pm_task, action: get }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        taskKey: "$.normalized.task.key"
+        status: "$.normalized.task.status"
+
+    - key: launch_validator
+      name: Launch idea validator
+      kind: session
+      needs: [load_task]
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: idea-validator
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+        actor: "${runtime.actor}"
+        role: planner
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        prompt: |-
+          Validate task ${workflow.inputs.taskKey} for specification work.
+          On every turn use pm_task/get for the task and pm_task/comment_list for its comments.
+          Consider the newest human clarification comments before deciding. Return only the validation JSON receipt required by your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected: [ready, needs_clarification]
+      gates:
+        - key: validation_receipt
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract: { format: json, path: $.outcome }
+          outcomes:
+            ready: ready
+            needs_clarification: needs_clarification
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+        baseRef: "$.normalized.session.baseRef"
+        headAtStart: "$.normalized.session.headAtStart"
+        outcome: "$.normalized.input.outcome"
+        taskSlug: "$.normalized.input.payload.gate.parsed.taskSlug"
+        summary: "$.normalized.input.payload.gate.parsed.summary"
+        questions: "$.normalized.input.payload.gate.parsed.questions"
+
+    - key: post_questions
+      name: Post clarification questions
+      kind: tool
+      needs: [launch_validator]
+      when:
+        - kind: value_equals
+          value: "${steps.launch_validator.outputs.outcome}"
+          equals: needs_clarification
+      tool: { id: pm_task, action: comment_create }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        body: "Idea validator requests clarification: ${steps.launch_validator.outputs.questions}"
+
+    - key: revalidate
+      name: Await clarification
+      kind: human_gate
+      needs: [post_questions]
+      when:
+        - kind: value_equals
+          value: "${steps.launch_validator.outputs.outcome}"
+          equals: needs_clarification
+      humanGate:
+        prompt: "Answer the validator questions on ${workflow.inputs.taskKey}, then revalidate."
+        approvalText: Revalidate
+        rejectionText: Stop
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      onFailure: { action: block }
+
+    - key: route_validation
+      name: Route validation
+      kind: condition
+      needs: [revalidate]
+      checks:
+        - kind: value_equals
+          value: "${steps.launch_validator.outputs.outcome}"
+          equals: ready
+          domain: [ready, needs_clarification]
+      onFailure:
+        action: loop_back
+        to: launch_validator
+        max: 10
+        exhausted: block
+
+    - key: mark_to_do
+      name: Mark task ready for planning
+      kind: tool
+      needs: [route_validation]
+      tool: { id: pm_task, action: change_status }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: to_do
+        reason: Idea validated; writing specification and plan.
+      outputs:
+        status: "$.normalized.task.status"

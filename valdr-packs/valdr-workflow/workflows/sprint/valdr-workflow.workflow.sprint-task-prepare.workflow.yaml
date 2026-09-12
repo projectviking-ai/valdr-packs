@@ -1,0 +1,111 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.sprint.task-prepare
+  name: Prepare Task For Sprint
+  description: Prepare one task and add it to an existing sprint only after every preparation gate passes. The sprint must already exist.
+  version: 0.10.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.sprint-task-prepare
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to prepare and add to the sprint.
+    sprintId:
+      type: string
+      required: true
+      description: Existing sprint the task joins after successful preparation. This workflow does not create a sprint.
+    routerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the routers and the sizer run on. Passed straight through to task.prepare.
+    reviewerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the readiness reviewer runs on. Needs repository access. Passed straight through to task.prepare.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: task_prepared. A task that fails any preparation gate blocks and never reaches the sprint.
+    sprintId:
+      type: string
+      required: true
+      description: Sprint the task was added to.
+    executorHandle:
+      type: string
+      required: true
+      description: Executor staffed by preparation.
+    reviewerHandles:
+      type: array
+      required: true
+      description: Reviewers staffed by preparation.
+    reviewId:
+      type: string
+      required: true
+      description: Review opened by preparation.
+    points:
+      type: string
+      required: true
+      description: Story points assigned by preparation.
+  outputMappings:
+    outcome: "${steps.prepare.outputs.outcome}"
+    sprintId: "${steps.link_to_sprint.outputs.sprintId}"
+    executorHandle: "${steps.prepare.outputs.executorHandle}"
+    reviewerHandles: "${steps.prepare.outputs.reviewerHandles}"
+    reviewId: "${steps.prepare.outputs.reviewId}"
+    points: "${steps.prepare.outputs.points}"
+  steps:
+    # All the judgement is in here. If any gate inside blocks, this run blocks
+    # with it and the task never joins the sprint - which is the point. A task
+    # that is not ready would otherwise sit in a sprint as a silent dependency
+    # for everything scheduled behind it.
+    - key: prepare
+      name: Prepare task
+      kind: subworkflow
+      workflow:
+        key: valdr-workflow.task.prepare
+        version: 0.11.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        reviewerLauncherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        executorHandle: "$.normalized.child.outputs.executorHandle"
+        reviewerHandles: "$.normalized.child.outputs.reviewerHandles"
+        reviewId: "$.normalized.child.outputs.reviewId"
+        points: "$.normalized.child.outputs.points"
+
+    # link_task is keyed by task id, not task key, so read the id back.
+    - key: load_task
+      name: Read task id
+      kind: tool
+      needs:
+        - prepare
+      tool:
+        id: pm_task
+        action: get
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        taskId: "$.normalized.task.id"
+
+    - key: link_to_sprint
+      name: Add to sprint
+      kind: tool
+      needs:
+        - load_task
+      tool:
+        id: pm_sprint
+        action: link_task
+      inputs:
+        taskId: "${steps.load_task.outputs.taskId}"
+        sprintId: "${workflow.inputs.sprintId}"
+      outputs:
+        sprintId: "$.normalized.link.sprintId"
+        taskId: "$.normalized.link.taskId"

@@ -90,6 +90,10 @@ test("generated manifests use the canonical valdr pack identity and archive root
     );
     const manifest = readManifest(archives[tier]);
     assert.equal(manifest.packKey, "valdr");
+    const packYaml = readArchiveText(archives[tier], `${archiveRoot}pack.yaml`);
+    assert.match(packYaml, /^license: "MIT"$/m);
+    assert.match(packYaml, /^homepage: "https:\/\/valdr\.ai"$/m);
+    assert.match(packYaml, /^repository: "https:\/\/github\.com\/projectviking-ai\/valdr-packs"$/m);
   }
 });
 
@@ -115,6 +119,7 @@ test("tier boundaries match the Raider, Vanguard, and Sovereign contract", () =>
 
   const sovereignEntries = listArchiveEntries(archives.sovereign);
   assert.equal(sovereignEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-session.md`), true);
+  assert.equal(sovereignEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-workflow.md`), true);
   assert.equal(hasPrefix(sovereignEntries, `${archiveRoot}orchestrator/skadi/`), true);
 });
 

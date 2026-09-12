@@ -1,0 +1,245 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.prepare
+  name: Prepare Task
+  description: Take one task from written to ready-to-run by reviewing readiness, repairing bounded gaps once, sizing, staffing an executor and reviewers, and moving it to to-do. If automated repair declines or cannot resolve the findings, a human is asked to correct the task before preparation blocks. Use Prepare Task For Sprint when successful preparation should also add sprint membership.
+  version: 0.11.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-prepare
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task to prepare.
+    routerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the routers and the sizer run on. These only read PM data and emit JSON, so a cheap fast preset is the right choice.
+    reviewerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the readiness reviewer runs on. Unlike the routers it must open files in the worktree to ground the task's code claims, so it needs a repository-capable preset.
+    operatorHandle:
+      type: string
+      required: false
+      default: "@pm"
+      description: Human operator authorized to answer this workflow's correction gates, alongside the run's own actor. Name a real person's handle when the run is started by a bot; the default is the handle operator-initiated runs are started under.
+    defaultExecutorHandle:
+      type: string
+      required: false
+      default: ""
+      description: Executor the agent router falls back to when no eligible agent declares a connection to the task. Empty keeps agent_unknown as a blocking outcome.
+    defaultReviewerHandle:
+      type: string
+      required: false
+      default: ""
+      description: Reviewer the agent router falls back to when no eligible agent declares a connection to the task. Empty keeps agent_unknown as a blocking outcome.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: task_prepared. Reaching this output at all means every gate passed - a failed gate blocks the run rather than returning an outcome.
+    executorHandle:
+      type: string
+      required: true
+      description: Executor staffed onto the task.
+    reviewerHandles:
+      type: array
+      required: true
+      description: Every reviewer staffed onto the review, ordered with the primary first.
+    reviewId:
+      type: string
+      required: true
+      description: Review opened for the task, with one assignment per reviewer.
+    points:
+      type: string
+      required: true
+      description: Story points the sizer settled on.
+    readinessSummary:
+      type: string
+      required: true
+      description: The readiness reviewer's one-sentence verdict summary.
+  outputMappings:
+    outcome: "${steps.mark_ready.outputs.preparedOutcome}"
+    executorHandle: "${steps.staff_executor.outputs.agentHandle}"
+    reviewerHandles: "${steps.staff_reviewers.outputs.agentHandles}"
+    reviewId: "${steps.open_review.outputs.reviewId}"
+    points: "${steps.size_task.outputs.points}"
+    readinessSummary: "${steps.ensure_ready.outputs.readinessSummary}"
+  steps:
+    # ---- Readiness first. Sizing and staffing an unclear task wastes both.
+    - key: ensure_ready
+      name: Ensure task is ready
+      kind: subworkflow
+      workflow:
+        key: valdr-workflow.task.ensure-ready
+        version: 0.3.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        reviewerLauncherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+        operatorHandle: "${workflow.inputs.operatorHandle}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        readinessSummary: "$.normalized.child.outputs.readinessSummary"
+        reviewerSessionUlid: "$.normalized.child.outputs.reviewerSessionUlid"
+
+    - key: size_task
+      name: Size task
+      kind: subworkflow
+      needs:
+        - ensure_ready
+      workflow:
+        key: valdr-workflow.task.size
+        version: 0.4.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sizerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        points: "$.normalized.child.outputs.points"
+
+    # task_needs_split blocks here rather than routing anywhere clever. Splitting
+    # a task is a change to the plan, not something preparation should improvise.
+    # task_size_unknown does not block: an unsized task is still deliverable, and
+    # a sizer that cannot decide must not stop the pipeline.
+    - key: gate_size
+      name: Gate on sizing
+      kind: condition
+      needs:
+        - size_task
+      checks:
+        - kind: value_in
+          value: "${steps.size_task.outputs.outcome}"
+          allowed: [task_sized, task_size_unknown]
+      outputs:
+        outcome: "${steps.size_task.outputs.outcome}"
+        reason: "Sizing outcome was ${steps.size_task.outputs.outcome}. task_needs_split means the task is more than one shippable change and has to be split before it can be prepared."
+      onFailure:
+        action: block
+
+    - key: staff_executor
+      name: Choose executor
+      kind: subworkflow
+      needs:
+        - gate_size
+      workflow:
+        key: valdr-workflow.task.choose-agent
+        version: 0.10.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        role: executor
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        defaultAgentHandle: "${workflow.inputs.defaultExecutorHandle}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        agentHandle: "$.normalized.child.outputs.agentHandle"
+        reasoning: "$.normalized.child.outputs.reasoning"
+
+    - key: gate_executor
+      name: Gate on executor
+      kind: condition
+      needs:
+        - staff_executor
+      checks:
+        - kind: value_equals
+          value: "${steps.staff_executor.outputs.outcome}"
+          equals: agent_decided
+      outputs:
+        outcome: "${steps.staff_executor.outputs.outcome}"
+        reason: "${steps.staff_executor.outputs.reasoning}"
+      onFailure:
+        action: block
+
+    # Reviewers are chosen by role, and defaultRole partitions the registry, so
+    # the executor cannot appear here. Self-review is structurally impossible
+    # rather than filtered out.
+    - key: staff_reviewers
+      name: Choose reviewers
+      kind: subworkflow
+      needs:
+        - gate_executor
+      workflow:
+        key: valdr-workflow.task.choose-agent
+        version: 0.10.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        role: reviewer
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        defaultAgentHandle: "${workflow.inputs.defaultReviewerHandle}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        agentHandles: "$.normalized.child.outputs.agentHandles"
+        reasoning: "$.normalized.child.outputs.reasoning"
+
+    - key: gate_reviewers
+      name: Gate on reviewers
+      kind: condition
+      needs:
+        - staff_reviewers
+      checks:
+        - kind: value_equals
+          value: "${steps.staff_reviewers.outputs.outcome}"
+          equals: agent_decided
+      outputs:
+        outcome: "${steps.staff_reviewers.outputs.outcome}"
+        reason: "${steps.staff_reviewers.outputs.reasoning}"
+      onFailure:
+        action: block
+
+    # ---- Everything above only decided. From here the decisions are persisted,
+    # ---- so delivery can read them off the task instead of being handed them.
+    - key: assign_executor
+      name: Assign executor
+      kind: tool
+      needs:
+        - gate_reviewers
+      tool:
+        id: pm_task
+        action: update
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        assignee: "${steps.staff_executor.outputs.agentHandle}"
+      outputs:
+        assigneeHandle: "$.normalized.task.assigneeHandle"
+
+    # agentHandles arrives as a real array through an exact reference, so N
+    # reviewers are staffed in one call rather than one step per reviewer.
+    - key: open_review
+      name: Open review
+      kind: tool
+      needs:
+        - assign_executor
+      tool:
+        id: pm_review
+        action: start
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        reviewerHandles: "${steps.staff_reviewers.outputs.agentHandles}"
+        summary: "Staffed during task preparation."
+      outputs:
+        reviewId: "$.normalized.review.id"
+        reviewStatus: "$.normalized.review.status"
+
+    - key: mark_ready
+      name: Mark ready to run
+      kind: tool
+      needs:
+        - open_review
+      tool:
+        id: pm_task
+        action: change_status
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: to_do
+        reason: "Prepared: readiness reviewed, sized, and staffed."
+      outputs:
+        status: "$.normalized.task.status"
+        # The workflow's own outcome is authored here rather than derived. Only a
+        # run that cleared every gate reaches this step, so its presence is the
+        # signal; a blocked run never emits an outcome at all.
+        preparedOutcome: "task_prepared"

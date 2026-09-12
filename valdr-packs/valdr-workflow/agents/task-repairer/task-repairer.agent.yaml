@@ -1,0 +1,15 @@
+schemaVersion: 1.0
+agent:
+  handle: task-repairer
+  name: Task Repairer
+  kind: bot
+  defaultRole: executor
+  tags: [valdr-workflow, task-readiness, task-repair]
+capabilities:
+  - key: valdr-workflow.task-repairer.system
+    role: core
+  - key: valdr-workflow.base.mcp-access
+    role: constraints
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true

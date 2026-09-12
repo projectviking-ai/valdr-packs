@@ -1,0 +1,261 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.ensure-ready
+  name: Ensure Task Is Ready
+  description: Review one task for readiness, attempt one bounded repair, and route unresolved corrections to a human.
+  version: 0.3.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-ensure-ready
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    routerLauncherConfigKey: { type: string, required: true }
+    reviewerLauncherConfigKey: { type: string, required: true }
+    operatorHandle:
+      type: string
+      required: false
+      default: "@pm"
+  outputs:
+    outcome: { type: string, required: true }
+    readinessSummary: { type: string, required: true }
+    reviewerSessionUlid: { type: string, required: true }
+  outputMappings:
+    outcome: "${steps.gate_readiness.outputs.outcome}"
+    readinessSummary: "${steps.check_readiness.outputs.summary}"
+    reviewerSessionUlid: "${steps.launch_readiness_reviewer.outputs.sessionUlid}"
+  steps:
+    # ---- Readiness first. Sizing and staffing an unclear task wastes both.
+    - key: launch_readiness_reviewer
+      name: Launch readiness reviewer
+      kind: session
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: task-readiness-reviewer
+        launcherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+        actor: "${runtime.actor}"
+        role: reviewer
+        run: false
+        # Close the session as soon as its turn ends. The presets carry
+        # keepAliveMs 120000, which leaves a finished session idle for two
+        # minutes, and a second launch for the same task, role, and agent
+        # inside that window is rejected as a conflict. Both knobs at zero
+        # take the launcher's immediate markClosed branch instead. This is what
+        # lets every loop pass send another turn to this one session: the
+        # closed session is reclaimed and resumed, and no worktree is torn down
+        # at close, so the reviewer keeps its repository access across passes.
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        maxRuntimeSeconds: 1800
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+
+    - key: check_readiness
+      name: Review readiness
+      kind: subworkflow
+      needs:
+        - launch_readiness_reviewer
+      workflow:
+        key: valdr-workflow.task.readiness-review
+        version: 0.5.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        reviewerSessionUlid: "${steps.launch_readiness_reviewer.outputs.sessionUlid}"
+      outputs:
+        outcome: "$.normalized.child.outputs.outcome"
+        summary: "$.normalized.child.outputs.summary"
+        blockingFindings: "$.normalized.child.outputs.blockingFindings"
+
+    # A rejected premise is not safe for automated rewriting.
+    - key: block_rejected
+      name: Block rejected task
+      kind: condition
+      needs:
+        - check_readiness
+      when:
+        - kind: value_equals
+          value: "${steps.check_readiness.outputs.outcome}"
+          equals: task_rejected
+      # This check is deliberately unsatisfiable: the step only runs when the
+      # outcome is task_rejected, and the check demands task_ready, so running
+      # this step always blocks the run. It is a block-with-a-reason node, not
+      # an evaluation - do not "fix" the check to agree with the when clause.
+      checks:
+        - kind: value_equals
+          value: "${steps.check_readiness.outputs.outcome}"
+          equals: task_ready
+          domain:
+            - task_ready
+            - task_needs_changes
+            - task_rejected
+      outputs:
+        outcome: "${steps.check_readiness.outputs.outcome}"
+        reason: "${steps.check_readiness.outputs.summary}"
+      onFailure:
+        action: block
+
+    # The first failed pass gets exactly one automated repair attempt. Loop
+    # passes two and three cannot launch this agent again.
+    - key: launch_repair
+      name: Launch task repairer
+      kind: session
+      needs:
+        - block_rejected
+      when:
+        - kind: value_equals
+          value: "${steps.check_readiness.outputs.outcome}"
+          equals: task_needs_changes
+        - kind: value_equals
+          value: "${runtime.loop.currentPass}"
+          equals: 1
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: task-repairer
+        # The repairer reads and writes one task through pm_task and never opens
+        # a file, so it runs on the cheap router preset rather than the
+        # repository-capable reviewer one, and it is provisioned without a
+        # worktree. Skipping the worktree also keeps it out of the executor's
+        # way: role executor on task:<KEY> is the slot the real executor takes
+        # later, and this session should leave nothing behind.
+        launcherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        actor: "${runtime.actor}"
+        role: executor
+        worktree:
+          disabled: true
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        maxRuntimeSeconds: 1800
+        prompt: |
+          Repair task ${workflow.inputs.taskKey} using only the readiness
+          reviewer's blocking findings below.
+
+          ${steps.check_readiness.outputs.blockingFindings}
+
+          Load the current task before editing it. Preserve all task metadata
+          that is unrelated to the exact description or acceptance-checklist
+          repair. Do not change status, assignment, sprint membership, points,
+          priority, code, files, comments, reviews, sessions, or workflow state.
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - task_repaired
+          - repair_needs_human
+      gates:
+        - key: task_repair_receipt
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract:
+            format: json
+            path: $.outcome
+          outcomes:
+            repaired: task_repaired
+            needs_human: repair_needs_human
+          onInvalid:
+            action: block
+          payload:
+            includeParsed: true
+            includeSession: false
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+        outcome: "$.normalized.input.outcome"
+        summary: "$.normalized.input.payload.gate.parsed.summary"
+
+    # The repairer's own contract makes it return needs_human without touching
+    # the task, so looping back for another readiness review would spend a full
+    # reviewer turn on a task byte-identical to the one just reviewed, and it
+    # would necessarily return the same verdict. Pass one therefore escalates
+    # straight to the human instead of paying for that turn. A when clause is a
+    # conjunction, so this is a separate gate from the pass-two one rather than
+    # a disjunction on a single gate.
+    - key: await_human_escalation
+      name: Await human task correction (repair declined)
+      kind: human_gate
+      needs:
+        - launch_repair
+      when:
+        - kind: value_equals
+          value: "${steps.check_readiness.outputs.outcome}"
+          equals: task_needs_changes
+        - kind: value_equals
+          value: "${runtime.loop.currentPass}"
+          equals: 1
+        - kind: value_equals
+          value: "${steps.launch_repair.outputs.outcome}"
+          equals: repair_needs_human
+      humanGate:
+        prompt: "Automated repair declined to change ${workflow.inputs.taskKey}: ${steps.launch_repair.outputs.summary}. Readiness verdict: ${steps.check_readiness.outputs.summary}. Blocking findings: ${steps.check_readiness.outputs.blockingFindings}. Update the task, then revalidate."
+        approvalText: Revalidate
+        rejectionText: Stop
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        # The runtime freezes this list when the gate opens and the UI submits a
+        # human approval under the run's own actor handle, so the run actor has
+        # to stay authorized or no operator can answer the gate at all. The
+        # explicit operator handle is the identity a caller names when the run
+        # actor is a bot. Neither entry lets that bot approve itself: the engine
+        # refuses to satisfy a human gate from any agent-reachable path, so the
+        # list decides which human may answer, not whether a machine may.
+        authorizedHandles:
+          - "${runtime.actorHandle}"
+          - "${workflow.inputs.operatorHandle}"
+      onFailure:
+        action: block
+
+    # Pass two pauses for human correction when the automated repair ran but did
+    # not make the task ready. Approval performs one final readiness pass; no
+    # repair agent is relaunched.
+    - key: await_human_correction
+      name: Await human task correction
+      kind: human_gate
+      needs:
+        - await_human_escalation
+      when:
+        - kind: value_equals
+          value: "${steps.check_readiness.outputs.outcome}"
+          equals: task_needs_changes
+        - kind: value_equals
+          value: "${runtime.loop.currentPass}"
+          equals: 2
+      humanGate:
+        prompt: "Automated repair completed, but re-review still reported ${workflow.inputs.taskKey} was not ready: ${steps.check_readiness.outputs.summary}. Blocking findings: ${steps.check_readiness.outputs.blockingFindings}. Update the task, then revalidate."
+        approvalText: Revalidate
+        rejectionText: Stop
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        # Authorized the same way as the pass-one escalation gate above, and for
+        # the same reasons.
+        authorizedHandles:
+          - "${runtime.actorHandle}"
+          - "${workflow.inputs.operatorHandle}"
+      onFailure:
+        action: block
+
+    - key: gate_readiness
+      name: Gate on readiness
+      kind: condition
+      needs:
+        - await_human_correction
+      checks:
+        - kind: value_equals
+          value: "${steps.check_readiness.outputs.outcome}"
+          equals: task_ready
+          domain:
+            - task_ready
+            - task_needs_changes
+            - task_rejected
+      outputs:
+        outcome: "${steps.check_readiness.outputs.outcome}"
+        reason: "${steps.check_readiness.outputs.summary}"
+      onFailure:
+        action: loop_back
+        to: check_readiness
+        max: 3
+        exhausted: block

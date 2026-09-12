@@ -1,0 +1,28 @@
+schemaVersion: 1.0
+agent:
+  handle: launcher-preset-router
+  name: Launcher Preset Router
+  kind: bot
+  defaultRole: orchestrator
+  tags:
+    - valdr-workflow
+    - preset-routing
+    - launcher
+    - routing
+capabilities:
+  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
+  # system prompt, and the router must never choose without the policy present.
+  - key: valdr-workflow.preset-routing.router.system
+    role: core
+  - key: valdr-workflow.preset-routing.policy
+    role: constraints
+  - key: valdr-workflow.base.mcp-access
+    role: constraints
+  - key: valdr-workflow.base.provider-capabilities
+    role: context
+  - key: valdr.core.tools.pm-provider
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true

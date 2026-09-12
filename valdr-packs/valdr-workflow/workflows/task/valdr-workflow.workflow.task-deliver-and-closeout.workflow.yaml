@@ -1,0 +1,68 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.deliver-and-closeout
+  name: Deliver And Close Out Task
+  description: Deliver one prepared task, then close exactly that completed delivery run.
+  version: 0.5.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-deliver-and-closeout
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    routerLauncherConfigKey: { type: string, required: true }
+    baseRef: { type: string, required: false }
+    mergeTargetBranch: { type: string, required: false, default: "" }
+    markDone: { type: boolean, required: false, default: true, description: "Passed through to task.closeout. False leaves the task verified for a later final status transition." }
+    executorLauncherConfigKey: { type: string, required: false, default: "", description: "Passed through to task.deliver as the preset router's fallback." }
+  outputs:
+    taskKey: { type: string, required: true }
+    deliveryRunUlid: { type: string, required: true }
+    implementationSessionUlid: { type: string, required: true }
+    branchName: { type: string, required: true }
+    baseRef: { type: string, required: true }
+    headAtStart: { type: string, required: true }
+    commitSha: { type: string, required: true }
+    finalTaskStatus: { type: string, required: true }
+  outputMappings:
+    taskKey: "${workflow.inputs.taskKey}"
+    deliveryRunUlid: "${steps.deliver.outputs.deliveryRunUlid}"
+    implementationSessionUlid: "${steps.deliver.outputs.implementationSessionUlid}"
+    branchName: "${steps.closeout.outputs.branchName}"
+    baseRef: "${steps.closeout.outputs.baseRef}"
+    headAtStart: "${steps.closeout.outputs.headAtStart}"
+    commitSha: "${steps.closeout.outputs.commitSha}"
+    finalTaskStatus: "${steps.closeout.outputs.finalTaskStatus}"
+  steps:
+    - key: deliver
+      name: Deliver task
+      kind: subworkflow
+      workflow: { key: valdr-workflow.task.deliver, version: 0.11.0 }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        baseRef: "${workflow.inputs.baseRef}"
+        executorLauncherConfigKey: "${workflow.inputs.executorLauncherConfigKey}"
+      outputs:
+        deliveryRunUlid: "$.normalized.child.runUlid"
+        implementationSessionUlid: "$.normalized.child.outputs.implementationSessionUlid"
+        baseRef: "$.normalized.child.outputs.baseRef"
+        headAtStart: "$.normalized.child.outputs.headAtStart"
+
+    - key: closeout
+      name: Close out delivered task
+      kind: subworkflow
+      needs: [deliver]
+      workflow: { key: valdr-workflow.task.closeout, version: 0.2.0 }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        deliveryRunUlid: "${steps.deliver.outputs.deliveryRunUlid}"
+        mergeTargetBranch: "${workflow.inputs.mergeTargetBranch}"
+        markDone: "${workflow.inputs.markDone}"
+      outputs:
+        branchName: "$.normalized.child.outputs.branchName"
+        baseRef: "$.normalized.child.outputs.baseRef"
+        headAtStart: "$.normalized.child.outputs.headAtStart"
+        commitSha: "$.normalized.child.outputs.commitSha"
+        finalTaskStatus: "$.normalized.child.outputs.finalTaskStatus"

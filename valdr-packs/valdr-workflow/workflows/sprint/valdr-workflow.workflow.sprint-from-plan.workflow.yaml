@@ -1,0 +1,142 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.sprint.from-plan
+  name: Execute Sprint From Plan
+  description: Create and execute one sprint from the ordered tasks in a persisted VMP plan.
+  version: 0.16.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.sprint-from-plan
+  start:
+    mode: manual
+  inputs:
+    projectKey: { type: string, required: true }
+    planKey: { type: string, required: true }
+    baseBranch: { type: string, required: true }
+    expectedBaseSha: { type: string, required: true }
+    planBranchSuffix: { type: string, required: false, default: "" }
+    sprintName: { type: string, required: true }
+    startTs: { type: number, required: true }
+    endTs: { type: number, required: true }
+    routerLauncherConfigKey: { type: string, required: true }
+    reviewerLauncherConfigKey: { type: string, required: true }
+    schedulerLauncherConfigKey: { type: string, required: true }
+  outputs:
+    sprintId: { type: string, required: true }
+    taskKeys: { type: array, required: true }
+    preparationResults: { type: array, required: true }
+    scheduledTaskKeys: { type: array, required: true }
+    scheduleReasoning: { type: string, required: true }
+    schedulerSessionUlid: { type: string, required: true }
+    deliveryResults: { type: array, required: true }
+    sprintCloseOutcome: { type: string, required: true }
+    originBranch: { type: string, required: true }
+    originSha: { type: string, required: true }
+    planBranch: { type: string, required: true }
+  outputMappings:
+    sprintId: "${steps.execute_sprint.outputs.sprintId}"
+    taskKeys: "${steps.execute_sprint.outputs.taskKeys}"
+    preparationResults: "${steps.execute_sprint.outputs.preparationResults}"
+    scheduledTaskKeys: "${steps.execute_sprint.outputs.scheduledTaskKeys}"
+    scheduleReasoning: "${steps.execute_sprint.outputs.scheduleReasoning}"
+    schedulerSessionUlid: "${steps.execute_sprint.outputs.schedulerSessionUlid}"
+    deliveryResults: "${steps.execute_sprint.outputs.deliveryResults}"
+    sprintCloseOutcome: "${steps.execute_sprint.outputs.sprintCloseOutcome}"
+    originBranch: "${workflow.inputs.baseBranch}"
+    originSha: "${workflow.inputs.expectedBaseSha}"
+    planBranch: "${steps.create_plan_branch.outputs.branchName}"
+  steps:
+    - key: load_plan
+      name: Load plan
+      kind: tool
+      tool: { id: vmp, action: get_plan }
+      inputs:
+        planKey: "${workflow.inputs.planKey}"
+      outputs:
+        projectKey: $.normalized.plan.projectKey
+        taskKeys: $.normalized.plan.taskKeys
+
+    - key: validate_plan_project
+      name: Validate plan project
+      kind: condition
+      needs: [load_plan]
+      onFailure: { action: block }
+      checks:
+        - kind: value_equals
+          value: "${steps.load_plan.outputs.projectKey}"
+          equals: "${workflow.inputs.projectKey}"
+
+    - key: validate_task_keys
+      name: Validate task keys
+      kind: condition
+      needs: [validate_plan_project]
+      onFailure: { action: block }
+      checks:
+        - kind: array_unique_nonempty_strings
+          value: "${steps.load_plan.outputs.taskKeys}"
+
+    - key: create_sprint
+      name: Create sprint
+      kind: tool
+      needs: [accept_plan_branch]
+      tool: { id: pm_sprint, action: create }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        name: "${workflow.inputs.sprintName}"
+        startTs: "${workflow.inputs.startTs}"
+        endTs: "${workflow.inputs.endTs}"
+      outputs:
+        sprintId: $.normalized.sprint.id
+
+    - key: create_plan_branch
+      name: Create plan delivery branch
+      kind: tool
+      needs: [validate_task_keys]
+      tool: { id: git, action: branch_create }
+      inputs:
+        branchName: "valdr-plan/${workflow.inputs.planKey}${workflow.inputs.planBranchSuffix}"
+        canonicalKey: "${workflow.inputs.planKey}"
+        expectedBaseSha: "${workflow.inputs.expectedBaseSha}"
+        sourceBranch: "${workflow.inputs.baseBranch}"
+      outputs:
+        outcome: "$.normalized.outcome"
+        branchName: "$.normalized.branchName"
+        observedSha: "$.normalized.observedSha"
+        recommendedAction: "$.normalized.recommendedAction"
+
+    - key: accept_plan_branch
+      name: Accept plan delivery branch
+      kind: condition
+      needs: [create_plan_branch]
+      checks:
+        - kind: value_in
+          value: "${steps.create_plan_branch.outputs.outcome}"
+          allowed: [created, existing]
+      onFailure: { action: block }
+
+    - key: execute_sprint
+      name: Execute sprint
+      kind: subworkflow
+      needs: [create_sprint]
+      workflow:
+        key: valdr-workflow.sprint.execute
+        version: 0.16.0
+      inputs:
+        sprintId: "${steps.create_sprint.outputs.sprintId}"
+        projectKey: "${workflow.inputs.projectKey}"
+        taskKeys: "${steps.load_plan.outputs.taskKeys}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        reviewerLauncherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+        schedulerLauncherConfigKey: "${workflow.inputs.schedulerLauncherConfigKey}"
+        baseRef: "${steps.create_plan_branch.outputs.branchName}"
+        mergeTargetBranch: "${steps.create_plan_branch.outputs.branchName}"
+      outputs:
+        sprintId: $.normalized.child.outputs.sprintId
+        taskKeys: $.normalized.child.outputs.taskKeys
+        preparationResults: $.normalized.child.outputs.preparationResults
+        scheduledTaskKeys: $.normalized.child.outputs.scheduledTaskKeys
+        scheduleReasoning: $.normalized.child.outputs.scheduleReasoning
+        schedulerSessionUlid: $.normalized.child.outputs.schedulerSessionUlid
+        deliveryResults: $.normalized.child.outputs.deliveryResults
+        sprintCloseOutcome: $.normalized.child.outputs.sprintCloseOutcome

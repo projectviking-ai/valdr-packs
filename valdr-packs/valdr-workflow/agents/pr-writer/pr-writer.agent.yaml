@@ -1,0 +1,10 @@
+schemaVersion: 1.0
+agent:
+  handle: pr-writer
+  name: Pull Request Writer
+  kind: bot
+  defaultRole: planner
+  tags: [valdr-workflow, git, pull-request]
+capabilities:
+  - key: valdr-workflow.pr-writer.system
+    role: core

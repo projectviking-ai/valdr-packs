@@ -1,0 +1,88 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.sprint.from-tasks
+  name: Execute Sprint From Tasks
+  description: Create and execute one sprint from an explicit ordered task list.
+  version: 0.17.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.sprint-from-tasks
+  start:
+    mode: manual
+  inputs:
+    projectKey: { type: string, required: true }
+    taskKeys: { type: array, required: true }
+    sprintName: { type: string, required: true }
+    startTs: { type: number, required: true }
+    endTs: { type: number, required: true }
+    routerLauncherConfigKey: { type: string, required: true }
+    reviewerLauncherConfigKey: { type: string, required: true }
+    schedulerLauncherConfigKey: { type: string, required: true }
+    baseRef: { type: string, required: false }
+    mergeTargetBranch: { type: string, required: false, default: "" }
+  outputs:
+    sprintId: { type: string, required: true }
+    taskKeys: { type: array, required: true }
+    preparationResults: { type: array, required: true }
+    scheduledTaskKeys: { type: array, required: true }
+    scheduleReasoning: { type: string, required: true }
+    schedulerSessionUlid: { type: string, required: true }
+    deliveryResults: { type: array, required: true }
+    sprintCloseOutcome: { type: string, required: true }
+  outputMappings:
+    sprintId: "${steps.execute_sprint.outputs.sprintId}"
+    taskKeys: "${steps.execute_sprint.outputs.taskKeys}"
+    preparationResults: "${steps.execute_sprint.outputs.preparationResults}"
+    scheduledTaskKeys: "${steps.execute_sprint.outputs.scheduledTaskKeys}"
+    scheduleReasoning: "${steps.execute_sprint.outputs.scheduleReasoning}"
+    schedulerSessionUlid: "${steps.execute_sprint.outputs.schedulerSessionUlid}"
+    deliveryResults: "${steps.execute_sprint.outputs.deliveryResults}"
+    sprintCloseOutcome: "${steps.execute_sprint.outputs.sprintCloseOutcome}"
+  steps:
+    - key: validate_task_keys
+      name: Validate task keys
+      kind: condition
+      onFailure: { action: block }
+      checks:
+        - kind: array_unique_nonempty_strings
+          value: "${workflow.inputs.taskKeys}"
+
+    - key: create_sprint
+      name: Create sprint
+      kind: tool
+      needs: [validate_task_keys]
+      tool: { id: pm_sprint, action: create }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        name: "${workflow.inputs.sprintName}"
+        startTs: "${workflow.inputs.startTs}"
+        endTs: "${workflow.inputs.endTs}"
+      outputs:
+        sprintId: $.normalized.sprint.id
+
+    - key: execute_sprint
+      name: Execute sprint
+      kind: subworkflow
+      needs: [create_sprint]
+      workflow:
+        key: valdr-workflow.sprint.execute
+        version: 0.16.0
+      inputs:
+        sprintId: "${steps.create_sprint.outputs.sprintId}"
+        projectKey: "${workflow.inputs.projectKey}"
+        taskKeys: "${workflow.inputs.taskKeys}"
+        routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        reviewerLauncherConfigKey: "${workflow.inputs.reviewerLauncherConfigKey}"
+        schedulerLauncherConfigKey: "${workflow.inputs.schedulerLauncherConfigKey}"
+        baseRef: "${workflow.inputs.baseRef}"
+        mergeTargetBranch: "${workflow.inputs.mergeTargetBranch}"
+      outputs:
+        sprintId: $.normalized.child.outputs.sprintId
+        taskKeys: $.normalized.child.outputs.taskKeys
+        preparationResults: $.normalized.child.outputs.preparationResults
+        scheduledTaskKeys: $.normalized.child.outputs.scheduledTaskKeys
+        scheduleReasoning: $.normalized.child.outputs.scheduleReasoning
+        schedulerSessionUlid: $.normalized.child.outputs.schedulerSessionUlid
+        deliveryResults: $.normalized.child.outputs.deliveryResults
+        sprintCloseOutcome: $.normalized.child.outputs.sprintCloseOutcome

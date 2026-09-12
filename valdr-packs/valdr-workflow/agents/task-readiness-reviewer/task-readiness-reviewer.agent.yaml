@@ -1,0 +1,24 @@
+schemaVersion: 1.0
+agent:
+  handle: task-readiness-reviewer
+  name: Task Readiness Reviewer
+  kind: bot
+  defaultRole: reviewer
+  tags:
+    - valdr-workflow
+    - task-readiness
+    - preflight
+    - review
+    - task-quality
+capabilities:
+  - key: valdr-workflow.task-readiness.reviewer.system
+    role: core
+  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
+  # system prompt, and this agent must never score without the rubric present.
+  - key: valdr-workflow.task-readiness.rubric
+    role: constraints
+  - key: valdr-workflow.base.mcp-access
+    role: constraints
+  - key: valdr.core.tools.pm-task
+    role: integration
+    hot-load: true

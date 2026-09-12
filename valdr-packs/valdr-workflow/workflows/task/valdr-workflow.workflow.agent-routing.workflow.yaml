@@ -1,0 +1,146 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.task.choose-agent
+  name: Choose Agent
+  description: Ask the agent-router agent which registered agents should take a task in a given role, and publish the decision through a gated wait. Returns an ordered array of handles - one normally, more when the task spans coverage a single agent does not provide. Designed to be called as a subworkflow.
+  version: 0.10.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.agent-routing
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+      description: Task the agent should be chosen for.
+    role:
+      type: string
+      required: true
+      description: Role to fill - executor, reviewer, planner, auditor, or orchestrator. Only agents whose defaultRole matches are eligible.
+    routerLauncherConfigKey:
+      type: string
+      required: true
+      description: Preset the router itself runs on. Must be capable enough to honour a strict JSON output contract.
+    defaultAgentHandle:
+      type: string
+      required: false
+      default: ""
+      description: Handle to fall back to when no eligible agent declares a connection to the task. Must be a registered bot whose defaultRole matches the requested role. With a default set, the router only returns agent_unknown when the default itself is not in the eligible listing. Leave empty to keep unknown as a possible answer.
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: agent_decided when an agent was chosen, agent_unknown when no eligible agent declared a connection to the task.
+    agentHandles:
+      type: array
+      required: true
+      description: Every chosen agent handle, ordered with the primary first. Empty when the outcome is unknown. Feeds pm_review/start.reviewerHandles directly as an exact reference.
+    agentHandle:
+      type: string
+      required: false
+      description: The primary handle - the first entry of agentHandles - for single-agent assignment such as pm_task/update.assignee. Absent when the outcome is agent_unknown.
+    reasoning:
+      type: string
+      required: true
+      description: Why the router decided as it did. On agent_unknown, this states what was inspected and what was missing.
+    routerSessionUlid:
+      type: string
+      required: true
+      description: Router session that produced the decision.
+  outputMappings:
+    outcome: "${steps.choose_agent.outputs.outcome}"
+    agentHandles: "${steps.choose_agent.outputs.agentHandles}"
+    agentHandle: "${steps.choose_agent.outputs.agentHandle}"
+    reasoning: "${steps.choose_agent.outputs.reasoning}"
+    routerSessionUlid: "${steps.choose_agent.outputs.sessionUlid}"
+  steps:
+    - key: choose_agent
+      name: Choose agent
+      kind: session
+      session:
+        action: launch_task
+        taskKey: "${workflow.inputs.taskKey}"
+        agentHandle: agent-router
+        launcherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
+        actor: "${runtime.actor}"
+        role: orchestrator
+        # Close the session as soon as its turn ends. The presets carry
+        # keepAliveMs 120000, which leaves a finished session idle for two
+        # minutes, and a second launch for the same task, role, and agent
+        # inside that window is rejected as a conflict. Both knobs at zero
+        # take the launcher's immediate markClosed branch instead.
+        config:
+          keepAliveMs: 0
+          sessionIdleCloseMs: 0
+        maxRuntimeSeconds: 900
+        # Replaces the builder's default turn instruction, which otherwise tells
+        # the session to IMPLEMENT the task. The routing policy and the JSON
+        # output contract come from the agent's registered capabilities.
+        prompt: |
+          Evaluate the task and the eligible agents through the in-session Valdr MCP tools, apply your routing policy, and return your decision:
+
+          Task Key: ${workflow.inputs.taskKey}
+
+          Retrieve the task at the source:
+
+              pm_task { action: "get", taskKey: "${workflow.inputs.taskKey}" }
+
+          Choose the agent or agents that should take this task in the role:
+          ${workflow.inputs.role}
+
+          Only agents whose defaultRole is "${workflow.inputs.role}" are eligible.
+          Filter the listing at the source:
+
+              pm_agent { action: "list", kinds: ["bot"], defaultRoles: ["${workflow.inputs.role}"], limit: 100 }
+
+          Do NOT implement this task and do NOT edit any file. Read the task and
+          the eligible agents through the in-session Valdr MCP tools, apply your
+          routing policy, and return your decision.
+
+          Default to a single agent. Return a second or third only when each
+          covers something the others do not and the task genuinely spans those
+          areas - see the multiple-coverage rule in your policy. agentHandles is
+          always a JSON array, ordered with the primary first, even when it
+          holds one handle.
+
+          Default agent handle: "${workflow.inputs.defaultAgentHandle}"
+
+          If the default handle above is non-empty and appears verbatim in this
+          turn's eligible listing, treat it as a Level 1 explicit instruction
+          for the no-match case: whenever the policy would otherwise end at
+          "unknown", return outcome "decided" with agentHandles set to that
+          single handle and decidedAt "default". An agent the policy does match
+          still wins over the default. Return outcome "unknown" only when no
+          default was given, or the default is not in the eligible listing.
+
+          Your entire final message must be the single JSON object defined by
+          your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected:
+          - agent_decided
+          - agent_unknown
+      gates:
+        - key: agent_choice
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract:
+            format: json
+            path: $.outcome
+          outcomes:
+            decided: agent_decided
+            unknown: agent_unknown
+          onInvalid:
+            action: block
+          payload:
+            includeParsed: true
+            includeSession: false
+      outputs:
+        sessionUlid: "$.normalized.session.sessionUlid"
+        outcome: "$.normalized.input.outcome"
+        agentHandles: "$.normalized.input.payload.gate.parsed.agentHandles"
+        agentHandle: "$.normalized.input.payload.gate.parsed.agentHandles[0]"
+        reasoning: "$.normalized.input.payload.gate.parsed.reasoning"

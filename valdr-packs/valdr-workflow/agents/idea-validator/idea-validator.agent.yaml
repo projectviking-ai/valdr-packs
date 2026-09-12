@@ -1,0 +1,14 @@
+schemaVersion: 1.0
+agent:
+  handle: idea-validator
+  name: Idea Validator
+  kind: bot
+  defaultRole: planner
+  tags: [valdr-workflow, planning, validation]
+capabilities:
+  - key: valdr-workflow.idea-validator.system
+    role: core
+  - key: valdr-workflow.plan-from-task.artifacts
+    role: constraints
+  - key: valdr-workflow.base.mcp-access
+    role: constraints

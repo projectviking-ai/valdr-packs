@@ -1,0 +1,341 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.pull-request.create
+  name: Create Pull Request
+  description: Freeze branch evidence, approve editable pull-request metadata, then publish the exact head.
+  version: 0.4.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.pull-request-create
+  start: { mode: manual }
+  inputs:
+    projectKey: { type: string, required: true }
+    remoteName: { type: string, required: false, default: origin }
+    baseBranch: { type: string, required: true }
+    headBranch: { type: string, required: true }
+    taskKey: { type: string, required: false }
+    operatorHandle: { type: string, required: true }
+    writerLauncherConfigKey: { type: string, required: true }
+    writerAgentHandle: { type: string, required: false, default: pr-writer }
+    writerInstructions: { type: string, required: false }
+    initialDraft: { type: boolean, required: false, default: true }
+  outputs:
+    decision: { type: string, required: true }
+    publicationOutcome: { type: string, required: false }
+    prNumber: { type: number, required: false }
+    prUrl: { type: string, required: false }
+    baseBranch: { type: string, required: true }
+    headBranch: { type: string, required: true }
+    headSha: { type: string, required: true }
+    title: { type: string, required: false }
+    draft: { type: boolean, required: false }
+    approvedProposalDigest: { type: string, required: false }
+  outputMappings:
+    decision: "${steps.approve_proposal.outputs.outcome}"
+    publicationOutcome: "${steps.create_pr.outputs.outcome}"
+    prNumber: "${steps.create_pr.outputs.number}"
+    prUrl: "${steps.create_pr.outputs.url}"
+    baseBranch: "${workflow.inputs.baseBranch}"
+    headBranch: "${workflow.inputs.headBranch}"
+    headSha: "${steps.resolve_head.outputs.resolvedSha}"
+    title: "${steps.approve_proposal.outputs.title}"
+    draft: "${steps.approve_proposal.outputs.draft}"
+    approvedProposalDigest: "${steps.create_pr.outputs.approvedProposalDigest}"
+  steps:
+    - key: resolve_head
+      name: Resolve local head
+      kind: tool
+      tool: { id: git, action: log }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        ref: "${workflow.inputs.headBranch}"
+        limit: 1
+      outputs:
+        resolvedSha: $.normalized.resolvedSha
+
+    - key: resolve_base
+      name: Resolve local base
+      kind: tool
+      needs: [resolve_head]
+      tool: { id: git, action: log }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        ref: "${workflow.inputs.baseBranch}"
+        limit: 1
+      outputs:
+        resolvedSha: $.normalized.resolvedSha
+
+    - key: observe_remote
+      name: Observe remote refs
+      kind: tool
+      needs: [resolve_base]
+      tool: { id: git, action: remote_status }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        remoteName: "${workflow.inputs.remoteName}"
+        baseBranch: "${workflow.inputs.baseBranch}"
+        headBranch: "${workflow.inputs.headBranch}"
+      outputs:
+        outcome: $.normalized.outcome
+        repoId: $.normalized.repoId
+        repositoryOwner: $.normalized.repository.owner
+        repositoryName: $.normalized.repository.name
+        remoteUrlDigest: $.normalized.remoteUrlDigest
+        baseSha: $.normalized.baseSha
+        headSha: $.normalized.headSha
+        headExpectation: $.normalized.headExpectation
+
+    - key: read_diff
+      name: Read frozen diff
+      kind: tool
+      needs: [observe_remote]
+      tool: { id: git, action: diff }
+      inputs:
+        repoId: "${steps.observe_remote.outputs.repoId}"
+        fromSha: "${steps.resolve_base.outputs.resolvedSha}"
+        toSha: "${steps.resolve_head.outputs.resolvedSha}"
+      outputs:
+        outcome: $.normalized.outcome
+        runUlid: $.normalized.runUlid
+        stepRunUlid: $.normalized.stepRunUlid
+        digest: $.normalized.digest
+
+    - key: read_log
+      name: Read frozen commits
+      kind: tool
+      needs: [read_diff]
+      tool: { id: git, action: log }
+      inputs:
+        repoId: "${steps.observe_remote.outputs.repoId}"
+        ref: "${steps.resolve_head.outputs.resolvedSha}"
+        fromSha: "${steps.resolve_base.outputs.resolvedSha}"
+      outputs:
+        commits: $.normalized.commits
+
+    - key: load_task
+      name: Load optional task context
+      kind: tool
+      needs: [read_log]
+      when:
+        - kind: value_equals
+          value: "${workflow.inputs.taskKey}"
+          equals: "${workflow.inputs.taskKey}"
+      tool: { id: pm_task, action: get }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        taskKey: $.normalized.task.key
+        taskTitle: $.normalized.task.title
+        taskDescription: $.normalized.task.descriptionMd
+
+    - key: draft_proposal
+      name: Draft pull request proposal
+      kind: session
+      needs: [load_task]
+      # The writer only reads, so it gets its own fresh worktree checked out
+      # from the head branch instead of borrowing a source session's linked
+      # worktree. A linked worktree would need a sourceSessionUlid, which a run
+      # started from the MCP (rather than from inside a session) does not have.
+      session:
+        action: launch_prompt
+        worktree:
+          projectKey: "${workflow.inputs.projectKey}"
+          repoId: "${steps.observe_remote.outputs.repoId}"
+          baseRef: "${workflow.inputs.headBranch}"
+        launcherConfigKey: "${workflow.inputs.writerLauncherConfigKey}"
+        agentHandle: "${workflow.inputs.writerAgentHandle}"
+        actor: "${runtime.actor}"
+        role: planner
+        prompt: |-
+          Draft a pull request proposal from this frozen evidence and the repository in this worktree.
+
+          Repository: ${steps.observe_remote.outputs.repositoryOwner}/${steps.observe_remote.outputs.repositoryName}
+          Remote: ${workflow.inputs.remoteName}
+          Base: ${workflow.inputs.baseBranch} at ${steps.resolve_base.outputs.resolvedSha}
+          Head: ${workflow.inputs.headBranch} at ${steps.resolve_head.outputs.resolvedSha}
+          Remote base SHA: ${steps.observe_remote.outputs.baseSha}
+          Remote head expectation: ${steps.observe_remote.outputs.headExpectation}
+          Diff digest: ${steps.read_diff.outputs.digest}
+
+          Inspect the exact frozen object range with:
+          git diff --binary ${steps.resolve_base.outputs.resolvedSha} ${steps.resolve_head.outputs.resolvedSha}
+
+          Never use a bare git diff or a working-tree diff.
+
+          Commits:
+          ${steps.read_log.outputs.commits}
+
+          Optional task: ${steps.load_task.outputs.taskKey}
+          Task title: ${steps.load_task.outputs.taskTitle}
+          Task description:
+          ${steps.load_task.outputs.taskDescription}
+
+          Optional writer instructions:
+          ${workflow.inputs.writerInstructions}
+
+          Return only the JSON object required by your system prompt.
+      waitsFor:
+        kind: workflow_input
+        expected: [proposal_ready]
+      gates:
+        - key: proposal_receipt
+          kind: session_output
+          source:
+            event: final_agent_message
+          extract: { format: json, path: $.outcome }
+          outcomes: { proposal_ready: proposal_ready }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+        outcome: $.normalized.input.outcome
+        title: $.normalized.input.payload.gate.parsed.title
+        body: $.normalized.input.payload.gate.parsed.body
+
+    - key: approve_proposal
+      name: Approve pull request proposal
+      kind: human_gate
+      needs: [draft_proposal]
+      humanGate:
+        prompt: Review and approve the frozen pull request proposal.
+        approvalText: Publish pull request
+        rejectionText: Reject
+        pullRequestProposal:
+          repository: "${steps.observe_remote.outputs.repositoryOwner}/${steps.observe_remote.outputs.repositoryName}"
+          remoteName: "${workflow.inputs.remoteName}"
+          baseBranch: "${workflow.inputs.baseBranch}"
+          headBranch: "${workflow.inputs.headBranch}"
+          headSha: "${steps.resolve_head.outputs.resolvedSha}"
+          writerSessionUlid: "${steps.draft_proposal.outputs.sessionUlid}"
+          evidenceDigest: "${steps.read_diff.outputs.digest}"
+          evidence:
+            runUlid: "${steps.read_diff.outputs.runUlid}"
+            stepRunUlid: "${steps.read_diff.outputs.stepRunUlid}"
+          initial:
+            title: "${steps.draft_proposal.outputs.title}"
+            body: "${steps.draft_proposal.outputs.body}"
+            draftFrom: "${workflow.inputs.initialDraft}"
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        authorizedHandles: ["${workflow.inputs.operatorHandle}"]
+      outputs:
+        outcome: $.normalized.input.outcome
+        title: $.normalized.input.payload.title
+        body: $.normalized.input.payload.body
+        draft: $.normalized.input.payload.draft
+
+    - key: reobserve_remote
+      name: Reobserve remote refs
+      kind: tool
+      needs: [approve_proposal]
+      when:
+        - kind: value_equals
+          value: "${steps.approve_proposal.outputs.outcome}"
+          equals: approved
+      tool: { id: git, action: remote_status }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        repoId: "${steps.observe_remote.outputs.repoId}"
+        remoteName: "${workflow.inputs.remoteName}"
+        baseBranch: "${workflow.inputs.baseBranch}"
+        headBranch: "${workflow.inputs.headBranch}"
+      outputs:
+        outcome: $.normalized.outcome
+        repositoryOwner: $.normalized.repository.owner
+        repositoryName: $.normalized.repository.name
+        remoteUrlDigest: $.normalized.remoteUrlDigest
+        baseSha: $.normalized.baseSha
+        headExpectation: $.normalized.headExpectation
+
+    - key: accept_frozen_evidence
+      name: Accept frozen publication evidence
+      kind: condition
+      needs: [reobserve_remote]
+      when:
+        - kind: value_equals
+          value: "${steps.approve_proposal.outputs.outcome}"
+          equals: approved
+      checks:
+        - { kind: value_equals, value: "${steps.reobserve_remote.outputs.outcome}", equals: complete }
+        - { kind: value_equals, value: "${steps.reobserve_remote.outputs.repositoryOwner}", equals: "${steps.observe_remote.outputs.repositoryOwner}" }
+        - { kind: value_equals, value: "${steps.reobserve_remote.outputs.repositoryName}", equals: "${steps.observe_remote.outputs.repositoryName}" }
+        - { kind: value_equals, value: "${steps.reobserve_remote.outputs.remoteUrlDigest}", equals: "${steps.observe_remote.outputs.remoteUrlDigest}" }
+        - { kind: value_equals, value: "${steps.reobserve_remote.outputs.headExpectation}", equals: "${steps.observe_remote.outputs.headExpectation}" }
+      onFailure: { action: block }
+
+    - key: push_head
+      name: Push frozen head
+      kind: tool
+      needs: [accept_frozen_evidence]
+      when:
+        - kind: value_equals
+          value: "${steps.approve_proposal.outputs.outcome}"
+          equals: approved
+      tool: { id: git, action: push }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        repoId: "${steps.observe_remote.outputs.repoId}"
+        remoteName: "${workflow.inputs.remoteName}"
+        expectedRemoteUrlDigest: "${steps.observe_remote.outputs.remoteUrlDigest}"
+        branchName: "${workflow.inputs.headBranch}"
+        expectedLocalSha: "${steps.resolve_head.outputs.resolvedSha}"
+        expectedRemoteSha: "${steps.observe_remote.outputs.headExpectation}"
+      outputs:
+        outcome: $.normalized.outcome
+        confirmedRemoteSha: $.normalized.confirmedRemoteSha
+
+    - key: accept_push
+      name: Accept push receipt
+      kind: condition
+      needs: [push_head]
+      when:
+        - kind: value_equals
+          value: "${steps.approve_proposal.outputs.outcome}"
+          equals: approved
+      checks:
+        - kind: value_in
+          value: "${steps.push_head.outputs.outcome}"
+          allowed: [pushed, existing]
+      onFailure: { action: block }
+
+    - key: create_pr
+      name: Create pull request
+      kind: tool
+      needs: [accept_push]
+      when:
+        - kind: value_equals
+          value: "${steps.approve_proposal.outputs.outcome}"
+          equals: approved
+      tool: { id: github, action: create_pull_request }
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        repoId: "${steps.observe_remote.outputs.repoId}"
+        remoteName: "${workflow.inputs.remoteName}"
+        expectedRemoteUrlDigest: "${steps.observe_remote.outputs.remoteUrlDigest}"
+        baseBranch: "${workflow.inputs.baseBranch}"
+        headBranch: "${workflow.inputs.headBranch}"
+        expectedHeadSha: "${steps.resolve_head.outputs.resolvedSha}"
+        title: "${steps.approve_proposal.outputs.title}"
+        body: "${steps.approve_proposal.outputs.body}"
+        draft: "${steps.approve_proposal.outputs.draft}"
+      outputs:
+        outcome: $.normalized.outcome
+        number: $.normalized.number
+        url: $.normalized.url
+        approvedProposalDigest: $.normalized.approvedProposalDigest
+
+    - key: accept_pr
+      name: Accept pull request receipt
+      kind: condition
+      needs: [create_pr]
+      when:
+        - kind: value_equals
+          value: "${steps.approve_proposal.outputs.outcome}"
+          equals: approved
+      checks:
+        - kind: value_in
+          value: "${steps.create_pr.outputs.outcome}"
+          allowed: [created, existing]
+      onFailure: { action: block }

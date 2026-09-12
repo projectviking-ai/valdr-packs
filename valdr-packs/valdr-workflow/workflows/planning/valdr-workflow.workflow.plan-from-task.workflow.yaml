@@ -1,0 +1,187 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.plan.from-task
+  name: Create Plan From Task
+  description: Validate an idea task, write and review its specification and plan in one shared worktree, wait for human approval of each, then commit and verify the VMP plan.
+  version: 0.10.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.plan-from-task
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    launcherConfigKey:
+      type: string
+      required: true
+  outputs:
+    taskKey: { type: string, required: true }
+    planKey: { type: string, required: true }
+    specPath: { type: string, required: true }
+    planPath: { type: string, required: true }
+    finalTaskStatus: { type: string, required: true }
+    baseRef: { type: string, required: true }
+    headAtStart: { type: string, required: true }
+  outputMappings:
+    taskKey: "${workflow.inputs.taskKey}"
+    planKey: "${steps.commit_plan.outputs.planKey}"
+    specPath: "${steps.create_spec.outputs.path}"
+    planPath: "${steps.create_plan.outputs.path}"
+    finalTaskStatus: "${steps.mark_done.outputs.status}"
+    baseRef: "${steps.validate_idea.outputs.baseRef}"
+    headAtStart: "${steps.validate_idea.outputs.headAtStart}"
+  steps:
+    - key: validate_idea
+      name: Validate idea for planning
+      kind: subworkflow
+      workflow:
+        key: valdr-workflow.plan.idea-readiness
+        version: 0.4.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+      outputs:
+        outcome: $.normalized.child.outputs.outcome
+        taskSlug: $.normalized.child.outputs.taskSlug
+        validatorSessionUlid: $.normalized.child.outputs.validatorSessionUlid
+        summary: $.normalized.child.outputs.summary
+        taskStatus: $.normalized.child.outputs.taskStatus
+        baseRef: $.normalized.child.outputs.baseRef
+        headAtStart: $.normalized.child.outputs.headAtStart
+
+    - key: create_spec
+      name: Create reviewed specification
+      kind: subworkflow
+      needs: [validate_idea]
+      workflow:
+        key: valdr-workflow.plan.spec-cycle
+        version: 0.3.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        taskSlug: "${steps.validate_idea.outputs.taskSlug}"
+        sourceSessionUlid: "${steps.validate_idea.outputs.validatorSessionUlid}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+      outputs:
+        path: "$.normalized.child.outputs.path"
+        outcome: "$.normalized.child.outputs.outcome"
+        writerSessionUlid: "$.normalized.child.outputs.writerSessionUlid"
+        reviewerSessionUlid: "$.normalized.child.outputs.reviewerSessionUlid"
+        reviewId: "$.normalized.child.outputs.reviewId"
+        reviewPath: "$.normalized.child.outputs.reviewPath"
+
+    - key: approve_spec
+      name: Approve specification
+      kind: human_gate
+      needs: [create_spec]
+      humanGate:
+        prompt: "Approve the reviewed specification for ${workflow.inputs.taskKey}?"
+        approvalText: Approve spec
+        rejectionText: Reject
+        preview:
+          documents:
+            - key: spec
+              label: Spec
+              path: "${steps.create_spec.outputs.path}"
+              sourceSessionUlid: "${steps.create_spec.outputs.writerSessionUlid}"
+            - key: spec_review
+              label: Spec review
+              path: "${steps.create_spec.outputs.reviewPath}"
+              sourceSessionUlid: "${steps.create_spec.outputs.reviewerSessionUlid}"
+        feedback:
+          sourceSessionUlid: "${steps.create_spec.outputs.writerSessionUlid}"
+          taskKey: "${workflow.inputs.taskKey}"
+          reviewId: "${steps.create_spec.outputs.reviewId}"
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      onFailure: { action: block }
+
+    - key: create_plan
+      name: Create reviewed plan
+      kind: subworkflow
+      needs: [approve_spec]
+      workflow:
+        key: valdr-workflow.plan.plan-cycle
+        version: 0.3.0
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        taskSlug: "${steps.validate_idea.outputs.taskSlug}"
+        sourceSessionUlid: "${steps.create_spec.outputs.writerSessionUlid}"
+        launcherConfigKey: "${workflow.inputs.launcherConfigKey}"
+      outputs:
+        path: "$.normalized.child.outputs.path"
+        outcome: "$.normalized.child.outputs.outcome"
+        writerSessionUlid: "$.normalized.child.outputs.writerSessionUlid"
+        reviewerSessionUlid: "$.normalized.child.outputs.reviewerSessionUlid"
+        reviewId: "$.normalized.child.outputs.reviewId"
+        reviewPath: "$.normalized.child.outputs.reviewPath"
+
+    - key: approve_plan
+      name: Approve plan
+      kind: human_gate
+      needs: [create_plan]
+      humanGate:
+        prompt: "Approve the reviewed plan for ${workflow.inputs.taskKey}?"
+        approvalText: Approve plan
+        rejectionText: Reject
+        preview:
+          documents:
+            - key: spec
+              label: Spec
+              path: "${steps.create_spec.outputs.path}"
+              sourceSessionUlid: "${steps.create_spec.outputs.writerSessionUlid}"
+            - key: spec_review
+              label: Spec review
+              path: "${steps.create_spec.outputs.reviewPath}"
+              sourceSessionUlid: "${steps.create_spec.outputs.reviewerSessionUlid}"
+            - key: plan
+              label: Plan
+              path: "${steps.create_plan.outputs.path}"
+              sourceSessionUlid: "${steps.create_plan.outputs.writerSessionUlid}"
+            - key: plan_review
+              label: Plan review
+              path: "${steps.create_plan.outputs.reviewPath}"
+              sourceSessionUlid: "${steps.create_plan.outputs.reviewerSessionUlid}"
+        feedback:
+          sourceSessionUlid: "${steps.create_plan.outputs.writerSessionUlid}"
+          taskKey: "${workflow.inputs.taskKey}"
+          reviewId: "${steps.create_plan.outputs.reviewId}"
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      onFailure: { action: block }
+
+    - key: commit_plan
+      name: Commit approved plan
+      kind: tool
+      needs: [approve_plan]
+      tool: { id: vmp, action: commit_markdown_from_worktree }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${steps.create_plan.outputs.writerSessionUlid}"
+        relativePath: "${steps.create_plan.outputs.path}"
+        plannerAgentHandle: plan-writer
+      outputs:
+        planKey: "$.normalized.planKey"
+
+    - key: verify_plan
+      name: Verify committed plan
+      kind: tool
+      needs: [commit_plan]
+      tool: { id: vmp, action: get_plan }
+      inputs:
+        planKey: "${steps.commit_plan.outputs.planKey}"
+
+    - key: mark_done
+      name: Mark source task done
+      kind: tool
+      needs: [verify_plan]
+      tool: { id: pm_task, action: change_status }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: done
+        reason: Specification and approved plan committed and verified.
+      outputs:
+        status: "$.normalized.task.status"
