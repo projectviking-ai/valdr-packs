@@ -3,9 +3,9 @@ SHELL := /bin/sh
 VALDR_BIN ?= valdr
 VALDR_WORKFLOW_CLI_VERSION := $(strip $(shell cat VALDR_WORKFLOW_CLI_VERSION))
 
-SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs
+SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/discover-cli.test.mjs
 
-.PHONY: help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack check-valdr-workflow-cli validate-valdr-workflow test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-all
+.PHONY: validate-user-workflow-tools build-valdr-tools test-user-workflow-tools help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack check-valdr-workflow-cli validate-valdr-workflow test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-all
 
 help:
 	@echo "Targets:"
@@ -26,7 +26,10 @@ help:
 	@echo "  build-valdr-vanguard Build the Vanguard valdr tier archive"
 	@echo "  build-valdr-sovereign Build the Sovereign valdr tier archive"
 	@echo "  build-valdr-workflow Build the valdr-workflow pack archive with the pinned CLI"
-	@echo "  build-valdr-all      Build Raider, Vanguard, Sovereign, and Workflow archives"
+	@echo "  validate-user-workflow-tools Validate tools with the installed Valdr CLI"
+	@echo "  build-valdr-tools    Build the standalone, deterministic user-tools archive"
+	@echo "  test-user-workflow-tools Test starters and pack validation"
+	@echo "  build-valdr-all      Build Raider, Vanguard, Sovereign, Workflow, and Tools archives"
 
 sync-all: sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini
 	@echo ""
@@ -106,6 +109,7 @@ validate-valdr-workflow: check-valdr-workflow-cli
 	@$(VALDR_BIN) validate-pack valdr-packs/valdr-workflow
 
 test-scripts:
+	@bun scripts/generate-user-workflow-cli-tools.mjs --check
 	@$(SCRIPT_TESTS)
 
 ci-validate: validate-valdr-pack test-scripts
@@ -126,4 +130,15 @@ build-valdr-workflow: validate-valdr-workflow
 	@mkdir -p build
 	@$(VALDR_BIN) generate-valdr-pack valdr-packs/valdr-workflow --output build/valdr-workflow.valdr-pack.tar.gz
 
-build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow
+build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-tools
+
+validate-user-workflow-tools:
+	@$(VALDR_BIN) validate-pack valdr-packs/valdr-tools
+
+build-valdr-tools: validate-user-workflow-tools
+	@mkdir -p build
+	@$(VALDR_BIN) generate-valdr-pack valdr-packs/valdr-tools --output build/valdr-tools.valdr-pack.tar.gz --exported-at 0
+
+test-user-workflow-tools: validate-user-workflow-tools
+	@bun scripts/generate-user-workflow-cli-tools.mjs --check
+	@VALDR_BIN="$(VALDR_BIN)" node --test scripts/user-workflow-tools.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/user-workflow-pack.test.mjs

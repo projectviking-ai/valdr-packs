@@ -25,6 +25,7 @@ them one run at a time.
 | `valdr-workflow.verdandi.authoring` | workflow | yes | Step kinds, how a step waits, expressions, contracts |
 | `valdr-workflow.verdandi.operating` | workflow | yes | Starting, watching, re-running, cancelling |
 | `valdr-workflow.verdandi.debugging` | workflow | yes | Symptom table and the diagnostic order |
+| `valdr-workflow.verdandi.user-tools` | workflow | yes | Calling imported local user tools from a step |
 | `valdr.core.tools.*` | integration | yes | Tool contracts pulled in on demand |
 
 `hazards` and `mcp-access` are deliberately **not** hot-load. `buildSystemPrompt`

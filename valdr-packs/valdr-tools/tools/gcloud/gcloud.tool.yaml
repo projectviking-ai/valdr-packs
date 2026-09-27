@@ -1,0 +1,266 @@
+schemaVersion: 1
+id: valdr-tools.user.gcloud
+revision: 1.0.5
+name: Google Cloud CLI
+icon: cloud
+description: Starter read actions for the host-installed gcloud CLI. Extend the metadata for your workflows; host installation and authentication are required.
+files:
+  - path: runner.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    - CLOUDSDK_CONFIG
+    - CLOUDSDK_ACTIVE_CONFIG_NAME
+    - GOOGLE_APPLICATION_CREDENTIALS
+limits:
+  timeoutSeconds: 30
+  maxInputBytes: 65536
+  maxResultBytes: 1048576
+  maxLogBytes: 4096
+actions:
+  - id: version
+    path:
+      - version
+    name: version
+    description: Read the installed CLI version without signing in.
+    inputSchema:
+      type: object
+      properties:
+        {}
+      required:
+        []
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        version:
+          type: string
+      required:
+        - version
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: projects-list
+    path:
+      - projects
+      - list
+    name: projects list
+    description: List at most 100 visible projects.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          &limit
+          type: integer
+          minimum: 1
+          maximum: 100
+        filter:
+          &filter
+          type: string
+          minLength: 1
+          maxLength: 4096
+        project:
+          &project
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]{4,61}[a-z0-9]$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: projects-describe
+    path:
+      - projects
+      - describe
+    name: projects describe
+    description: Read one project.
+    inputSchema:
+      type: object
+      properties:
+        projectId:
+          &projectId
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]*$"
+        project:
+          *project
+      required:
+        - projectId
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: compute-instances-list
+    path:
+      - compute
+      - instances
+      - list
+    name: compute instances list
+    description: List at most 100 compute instances in the selected or configured project.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        filter:
+          *filter
+        project:
+          *project
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: compute-instances-describe
+    path:
+      - compute
+      - instances
+      - describe
+    name: compute instances describe
+    description: Read one compute instance in an explicit zone.
+    inputSchema:
+      type: object
+      properties:
+        instance:
+          *projectId
+        zone:
+          *projectId
+        project:
+          *project
+      required:
+        - instance
+        - zone
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: compute-disks-list
+    path:
+      - compute
+      - disks
+      - list
+    name: compute disks list
+    description: List at most 100 block storage disks.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        filter:
+          *filter
+        project:
+          *project
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: compute-networks-list
+    path:
+      - compute
+      - networks
+      - list
+    name: compute networks list
+    description: List at most 100 virtual networks.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        filter:
+          *filter
+        project:
+          *project
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: storage-buckets-list
+    path:
+      - storage
+      - buckets
+      - list
+    name: storage buckets list
+    description: List at most 100 storage buckets.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        filter:
+          *filter
+        project:
+          *project
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: run-services-list
+    path:
+      - run
+      - services
+      - list
+    name: run services list
+    description: List at most 100 Cloud Run services.
+    inputSchema:
+      type: object
+      properties:
+        region:
+          *projectId
+        limit:
+          *limit
+        filter:
+          *filter
+        project:
+          *project
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: run-services-describe
+    path:
+      - run
+      - services
+      - describe
+    name: run services describe
+    description: Read one Cloud Run service in an explicit region.
+    inputSchema:
+      type: object
+      properties:
+        service:
+          *projectId
+        region:
+          *projectId
+        project:
+          *project
+      required:
+        - service
+        - region
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent

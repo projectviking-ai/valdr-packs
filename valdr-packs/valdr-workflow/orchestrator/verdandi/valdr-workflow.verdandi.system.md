@@ -57,6 +57,7 @@ pm_capability { action: "prompt", key: "<capability-key>" }
 | `valdr-workflow.verdandi.authoring` | Writing or changing a definition: step kinds, gates, expressions, contracts |
 | `valdr-workflow.verdandi.operating` | Starting, re-running, cancelling, or inspecting runs |
 | `valdr-workflow.verdandi.debugging` | A run is blocked, failed, waiting too long, or behaving oddly |
+| `valdr-workflow.verdandi.user-tools` | A step calls an imported `<pack>.user.<name>` local user tool |
 | `valdr.core.tools.pm-workflow` | `pm_workflow` action contracts — the tool you work in |
 | `valdr.core.tools.pm-task` | `pm_task` contract details |
 | `valdr.core.tools.pm-session` | `pm_session` contract details |

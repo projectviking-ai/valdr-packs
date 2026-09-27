@@ -25,28 +25,27 @@ test("release workflow is scoped to main pushes with release-affecting path filt
   const workflow = fs.readFileSync(workflowPath, "utf8");
 
   assert.match(workflow, /push:\n\s+branches:\n\s+- main/);
-  assert.match(workflow, /paths:\n\s+- skills\/\*\*\n\s+- commands\/\*\*\n\s+- valdr-packs\/valdr\/\*\*\n\s+- valdr-packs\/valdr-workflow\/\*\*\n\s+- scripts\/build-valdr-tier\.mjs\n\s+- scripts\/generate-valdr-pack\.mjs\n\s+- scripts\/validate-valdr-pack\.mjs\n\s+- scripts\/lib\/\*\*\n\s+- VERSION\n\s+- VALDR_WORKFLOW_CLI_VERSION\n\s+- Makefile\n\s+- \.github\/workflows\/release\.yml\n\npermissions:/);
+  assert.match(workflow, /paths:\n\s+- skills\/\*\*\n\s+- commands\/\*\*\n\s+- valdr-packs\/valdr\/\*\*\n\s+- valdr-packs\/valdr-workflow\/\*\*\n\s+- valdr-packs\/valdr-tools\/\*\*\n\s+- scripts\/build-valdr-tier\.mjs\n\s+- scripts\/generate-valdr-pack\.mjs\n\s+- scripts\/generate-user-workflow-cli-tools\.mjs\n\s+- scripts\/validate-valdr-pack\.mjs\n\s+- scripts\/lib\/\*\*\n\s+- VERSION\n\s+- VALDR_WORKFLOW_CLI_VERSION\n\s+- Makefile\n\s+- \.github\/workflows\/release\.yml\n\npermissions:/);
   assert.doesNotMatch(workflow, /README\.md/);
   assert.doesNotMatch(workflow, /workflow_dispatch:|\n\s+tags:/);
 });
 
-test("one release builds all four packs with the pinned CLI and publishes the repository version", () => {
+test("one release builds all five packs with the pinned CLI and publishes the repository version", () => {
   const workflow = fs.readFileSync(workflowPath, "utf8");
-  const archives = ["raider", "vanguard", "sovereign", "workflow"].map((pack) => `build/valdr-${pack}.valdr-pack.tar.gz`);
+  const archives = ["raider", "vanguard", "sovereign", "workflow", "tools"].map((pack) => `build/valdr-${pack}.valdr-pack.tar.gz`);
 
   assert.equal(fs.existsSync(".github/workflows/release-valdr-workflow.yml"), false, "one release workflow owns all packs");
   assert.match(workflow, /permissions:\n\s+contents: write/);
-  assert.match(workflow, /runs-on: macos-14/);
+  assert.match(workflow, /runs-on: ubuntu-24\.04/);
   assert.match(workflow, /gh release download "v\$\{CLI_VERSION\}" --repo projectviking-ai\/valdr-releases/);
-  assert.match(workflow, /valdr-v\$\{CLI_VERSION\}-macos-arm64\.tar\.gz/);
-  assert.match(workflow, /valdr-v\$\{CLI_VERSION\}-macos-arm64\.tar\.gz\.sha256/);
-  assert.match(workflow, /shasum -a 256 -c/);
-  assert.doesNotMatch(workflow, /linux-x64/);
+  assert.match(workflow, /valdr-v\$\{CLI_VERSION\}-linux-x64\.tar\.gz/);
+  assert.match(workflow, /valdr-v\$\{CLI_VERSION\}-linux-x64\.tar\.gz\.sha256/);
+  assert.match(workflow, /sha256sum -c/);
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
   assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
   assert.match(workflow, /run: make build-valdr-all/);
-  assert.match(fs.readFileSync("Makefile", "utf8"), /^build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow$/m);
+  assert.match(fs.readFileSync("Makefile", "utf8"), /^build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-tools$/m);
   assert.match(workflow, /tr -d '\\n' < VERSION/);
   assert.match(workflow, /if \[ -z "\$CLI_VERSION" \]/);
   assert.doesNotMatch(workflow, /GITHUB_REF_NAME/);
@@ -65,7 +64,7 @@ test("one release builds all four packs with the pinned CLI and publishes the re
 
   const releaseOperations = [
     /gh release download/,
-    /shasum -a 256 -c/,
+    /sha256sum -c/,
     /tar -xzf/,
     /actual_version="\$\(bin\/valdr version \| awk/,
     /make ci-validate/,
@@ -126,7 +125,7 @@ test("release shell publishes all packs at the pushed commit and fails closed on
     const expectedCalls = ["api", "--method", "GET", "repos/example/packs/git/ref/tags/v1.2.3", "--include", "--silent"];
     if (expectedStatus === 0) expectedCalls.push(
       "release", "create", "v1.2.3",
-      ...["raider", "vanguard", "sovereign", "workflow"].map((pack) => `build/valdr-${pack}.valdr-pack.tar.gz`),
+      ...["raider", "vanguard", "sovereign", "workflow", "tools"].map((pack) => `build/valdr-${pack}.valdr-pack.tar.gz`),
       "--target", "1234567890abcdef1234567890abcdef12345678",
       "--title", "v1.2.3", "--notes", "Valdr pack release v1.2.3",
     );
@@ -134,18 +133,18 @@ test("release shell publishes all packs at the pushed commit and fails closed on
   }
 });
 
-test("pull requests validate the workflow pack with the exact pinned public CLI", () => {
+test("pull requests validate Workflow and Tools with the exact pinned public CLI", () => {
   const workflow = fs.readFileSync(validationWorkflowPath, "utf8");
 
-  assert.match(workflow, /runs-on: macos-14/);
+  assert.match(workflow, /runs-on: ubuntu-24\.04/);
   assert.match(workflow, /CLI_VERSION="\$\(tr -d '\\n' < VALDR_WORKFLOW_CLI_VERSION\)"/);
   assert.match(workflow, /gh release download "v\$\{CLI_VERSION\}" --repo projectviking-ai\/valdr-releases/);
-  assert.match(workflow, /valdr-v\$\{CLI_VERSION\}-macos-arm64\.tar\.gz\.sha256/);
-  assert.match(workflow, /shasum -a 256 -c/);
+  assert.match(workflow, /valdr-v\$\{CLI_VERSION\}-linux-x64\.tar\.gz\.sha256/);
+  assert.match(workflow, /sha256sum -c/);
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
   assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
-  assert.match(workflow, /run: make validate-valdr-workflow/);
+  assert.match(workflow, /run: make validate-valdr-workflow validate-user-workflow-tools/);
 });
 
 test("workflow composition closes current pins and forwards a non-origin remote", () => {
@@ -212,6 +211,7 @@ test("public docs explain release assets, import order, and runtime configuratio
   assert.match(combined, /VALDR_WORKFLOW_CLI_VERSION/);
   assert.match(combined, /valdr-sovereign\.valdr-pack\.tar\.gz/);
   assert.match(combined, /valdr-workflow\.valdr-pack\.tar\.gz/);
+  assert.match(combined, /valdr-tools\.valdr-pack\.tar\.gz/);
   assert.doesNotMatch(combined, /valdr-workflow-v/);
   assert.match(combined, /Valdr UI/);
   assert.match(combined, /pm_provider/);
@@ -246,9 +246,10 @@ test("public pull-request workflow resolves its repository without exposing repo
   );
 });
 
-test("validate-valdr-workflow rejects old, failed-probe, and 0.3.0-dev CLIs before validation; accepts exact 0.3.0", () => {
+test("validate-valdr-workflow rejects old, failed-probe, and dev CLIs before validation; accepts the pinned version", () => {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "valdr-workflow-"));
   const fakeValdr = path.join(temporaryDirectory, "valdr");
+  const pinnedVersion = fs.readFileSync("VALDR_WORKFLOW_CLI_VERSION", "utf8").trim();
 
   test.after(() => fs.rmSync(temporaryDirectory, { force: true, recursive: true }));
 
@@ -281,7 +282,7 @@ exit 1
 
   fs.writeFileSync(fakeValdr, `#!/bin/sh
 if [ "$1" = version ]; then
-  echo 'valdr 0.3.0 (test)'
+  echo 'valdr ${pinnedVersion} (test)'
   exit 1
 fi
 echo 'validate-pack should not run' >&2
@@ -307,7 +308,7 @@ exit 0
 
   fs.writeFileSync(fakeValdr, `#!/bin/sh
 if [ "$1" = version ]; then
-  echo 'valdr 0.3.0-dev (test)'
+  echo 'valdr ${pinnedVersion}-dev (test)'
   exit 0
 fi
 echo 'validate-pack should not run' >&2
@@ -333,7 +334,7 @@ exit 0
 
   fs.writeFileSync(fakeValdr, `#!/bin/sh
 if [ "$1" = version ]; then
-  echo 'valdr 0.3.0 (test)'
+  echo 'valdr ${pinnedVersion} (test)'
   exit 0
 fi
 if [ "$1" = validate-pack ] && [ "$2" = valdr-packs/valdr-workflow ] && [ "$#" -eq 2 ]; then

@@ -1,0 +1,334 @@
+schemaVersion: 1
+id: valdr-tools.user.gh
+revision: 1.0.5
+name: GitHub CLI
+icon: code-bracket-square
+description: Starter read actions for the host-installed gh CLI. Extend the metadata for your workflows; host installation and authentication are required.
+files:
+  - path: runner.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    - GH_TOKEN
+    - GITHUB_TOKEN
+    - GH_ENTERPRISE_TOKEN
+    - GITHUB_ENTERPRISE_TOKEN
+    - GH_HOST
+    - GH_CONFIG_DIR
+limits:
+  timeoutSeconds: 30
+  maxInputBytes: 65536
+  maxResultBytes: 1048576
+  maxLogBytes: 4096
+actions:
+  - id: version
+    path:
+      - version
+    name: version
+    description: Read the installed CLI version without signing in.
+    inputSchema:
+      type: object
+      properties:
+        {}
+      required:
+        []
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        version:
+          type: string
+      required:
+        - version
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: repo-view
+    path:
+      - repo
+      - view
+    name: repo view
+    description: Read a repository; omit repo to use the execution working directory.
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          &repo
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9_.-]+$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: repo-list
+    path:
+      - repo
+      - list
+    name: repo list
+    description: List at most 100 repositories for an owner or the authenticated user.
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          &owner
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]*$"
+        limit:
+          &limit
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: pr-list
+    path:
+      - pr
+      - list
+    name: pr list
+    description: "List at most 100 pull requests, optionally filtered by state, branch or search."
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          *repo
+        limit:
+          *limit
+        state:
+          type: string
+          enum:
+            - open
+            - closed
+            - merged
+            - all
+        base:
+          *owner
+        head:
+          *owner
+        search:
+          &search
+          type: string
+          minLength: 1
+          maxLength: 4096
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: pr-view
+    path:
+      - pr
+      - view
+    name: pr view
+    description: Read one pull request.
+    inputSchema:
+      type: object
+      properties:
+        number:
+          &number
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        repo:
+          *repo
+      required:
+        - number
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: issue-list
+    path:
+      - issue
+      - list
+    name: issue list
+    description: "List at most 100 issues, optionally filtered by state, assignee, label or search."
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          *repo
+        limit:
+          *limit
+        state:
+          type: string
+          enum:
+            - open
+            - closed
+            - all
+        assignee:
+          *owner
+        label:
+          *search
+        search:
+          *search
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: issue-view
+    path:
+      - issue
+      - view
+    name: issue view
+    description: Read one issue.
+    inputSchema:
+      type: object
+      properties:
+        number:
+          *number
+        repo:
+          *repo
+      required:
+        - number
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: run-list
+    path:
+      - run
+      - list
+    name: run list
+    description: List at most 100 Actions workflow runs.
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          *repo
+        limit:
+          *limit
+        branch:
+          *owner
+        workflow:
+          *owner
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: run-view
+    path:
+      - run
+      - view
+    name: run view
+    description: Read one Actions workflow run without downloading logs or artifacts.
+    inputSchema:
+      type: object
+      properties:
+        runId:
+          *number
+        repo:
+          *repo
+      required:
+        - runId
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: workflow-list
+    path:
+      - workflow
+      - list
+    name: workflow list
+    description: List at most 100 Actions workflow definitions.
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          *repo
+        limit:
+          *limit
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: release-list
+    path:
+      - release
+      - list
+    name: release list
+    description: List at most 100 releases.
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          *repo
+        limit:
+          *limit
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: release-view
+    path:
+      - release
+      - view
+    name: release view
+    description: "Read a release by tag, or the latest release when tag is omitted."
+    inputSchema:
+      type: object
+      properties:
+        tag:
+          *owner
+        repo:
+          *repo
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: label-list
+    path:
+      - label
+      - list
+    name: label list
+    description: List at most 100 repository labels.
+    inputSchema:
+      type: object
+      properties:
+        repo:
+          *repo
+        limit:
+          *limit
+        search:
+          *search
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent

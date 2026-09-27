@@ -10,12 +10,14 @@ Skills for operating the Valdr PM MCP server. Each skill is a focused instructio
 | `valdr-executor` | Task execution: fetch tasks, execute work, update checklists | `valdr-executor/SKILL.md` |
 | `valdr-orchestrator` | Unified orchestrator routing across PM navigation, registry, and sprint workflows | `valdr-orchestrator/SKILL.md` |
 | `valdr-planner` | VMP structured planning: plans, specs, requirements, tasks | `valdr-planner/SKILL.md` |
+| `valdr-workflow-tools` | Author portable local code and CLI tools, inventories, contracts and pack updates | `valdr-workflow-tools/SKILL.md` |
 | `valdr-reviewer` | Code review workflow: reviews, lightweight review scoring, verification gate | `valdr-reviewer/SKILL.md` |
 
 ## Skill Selection Guide
 
 | Task | Skill |
 |------|-------|
+| Author or update a workflow tool / discover CLI commands | valdr-workflow-tools |
 | Audit agent sessions | valdr-auditor |
 | Evaluate execution quality | valdr-auditor |
 | Submit score payloads | valdr-auditor |
@@ -55,9 +57,9 @@ skills/<skill-name>/
 
 The wrapper skills use fully-qualified MCP names in examples, such as `mcp__valdr__pm_project` and `mcp__valdr__pm_task`, so the handoff to the loaded prompt is explicit.
 
-## Critical Protocol (All Skills)
+## Critical Protocol (PM Record Mutations)
 
-Every skill follows this non-negotiable sequence:
+Skills that mutate PM records follow this sequence; local tool authoring and pack validation do not require actor metadata:
 
 ```
 STEP 1: Fetch before mutate
@@ -119,4 +121,4 @@ For project-level installation, use `make sync-skills` which populates:
 
 ## Compatibility
 
-Requires Valdr MCP server with PM MCP tools enabled.
+PM operator skills require the Valdr MCP server with PM MCP tools enabled. Workflow-tool authoring uses the Valdr 0.3.3+ pack CLI; execution additionally requires the host runtimes, dependencies, and authentication used by the selected action.

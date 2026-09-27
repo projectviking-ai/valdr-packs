@@ -67,6 +67,10 @@ valdr-packs/<pack-key>/
 └── <pack>.<domain>.<handle>.<name>.md     # Capability prompt files
 ```
 
+## Executable workflow tools (Valdr 0.3.3+)
+
+Use the `valdr-workflow-tools` skill when packaging local code or CLI actions. Canonical examples live in the standalone `valdr-packs/valdr-tools` pack. Include the tool directory in `pack.yaml`; author canonical `*.tool.yaml` manifests plus explicit source inventory, stdin/stdout fixtures and typed action contracts. Validate and generate with the production Valdr CLI. Import retains source and makes tools immediately available in the Builder without executing them. Workflows choose the working directory, optionally overridden by step-level `cwd`; omit legacy `process.cwd` from new manifests. Exact inventoried file arguments resolve under the tool root, and manifest `inheritEnv` names are used directly with internal and unsafe names filtered. The JSON request carries no project key or workflow context. Do not install dependencies, authenticate or run actions as a side effect of pack authoring. New content needs a new revision; preserve existing workflow pins.
+
 ## Creating a New Pack from Scratch
 
 ### Step 1: Create pack directory and manifest

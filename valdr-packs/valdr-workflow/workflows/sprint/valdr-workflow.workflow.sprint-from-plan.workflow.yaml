@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.sprint.from-plan
   name: Execute Sprint From Plan
   description: Create and execute one sprint from the ordered tasks in a persisted VMP plan.
-  version: 0.16.0
+  version: 0.17.0
   pack: valdr-workflow
   source:
     kind: capability
@@ -17,8 +17,8 @@ workflow:
     expectedBaseSha: { type: string, required: true }
     planBranchSuffix: { type: string, required: false, default: "" }
     sprintName: { type: string, required: true }
-    startTs: { type: number, required: true }
-    endTs: { type: number, required: true }
+    startTs: { type: integer, required: true }
+    endTs: { type: integer, required: true }
     routerLauncherConfigKey: { type: string, required: true }
     reviewerLauncherConfigKey: { type: string, required: true }
     schedulerLauncherConfigKey: { type: string, required: true }

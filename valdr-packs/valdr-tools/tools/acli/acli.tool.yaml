@@ -1,0 +1,361 @@
+schemaVersion: 1
+id: valdr-tools.user.acli
+revision: 1.0.6
+name: Atlassian CLI
+icon: ticket
+description: Starter read actions for the host-installed acli CLI. Extend the metadata for your workflows; host installation and authentication are required.
+files:
+  - path: runner.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    []
+limits:
+  timeoutSeconds: 35
+  maxInputBytes: 65536
+  maxResultBytes: 1048576
+  maxLogBytes: 4096
+actions:
+  - id: version
+    path:
+      - version
+    name: version
+    description: Read the installed CLI version without signing in.
+    inputSchema:
+      type: object
+      properties:
+        {}
+      required:
+        []
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        version:
+          type: string
+      required:
+        - version
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-view
+    path:
+      - jira
+      - workitem
+      - view
+    name: jira workitem view
+    description: Read one Jira work item.
+    inputSchema:
+      type: object
+      properties:
+        key:
+          &key
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Z][A-Z0-9_]*-[0-9]+$"
+      required:
+        - key
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-import
+    path:
+      - jira
+      - workitem
+      - import
+    name: jira workitem import
+    description: "Read one Jira work item normalized for task import, with its description as markdown."
+    inputSchema:
+      type: object
+      properties:
+        key:
+          *key
+      required:
+        - key
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        key:
+          &key1
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]*-[0-9]+$"
+        title:
+          type: string
+        type:
+          type: string
+          enum:
+            - task
+            - bug
+            - story
+            - epic
+            - spike
+        jiraType:
+          type:
+            - string
+            - "null"
+        priority:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 5
+        jiraPriority:
+          type:
+            - string
+            - "null"
+        labels:
+          type: array
+          items:
+            type: string
+        status:
+          type:
+            - string
+            - "null"
+        descriptionMarkdown:
+          type: string
+      required:
+        - key
+        - title
+        - type
+        - jiraType
+        - priority
+        - jiraPriority
+        - labels
+        - status
+        - descriptionMarkdown
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-search
+    path:
+      - jira
+      - workitem
+      - search
+    name: jira workitem search
+    description: Read at most 100 work items matching JQL.
+    inputSchema:
+      type: object
+      properties:
+        jql:
+          &jql
+          type: string
+          minLength: 1
+          maxLength: 4096
+        limit:
+          &limit
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+        - jql
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-keys
+    path:
+      - jira
+      - workitem
+      - keys
+    name: jira workitem keys
+    description: "Read the keys of every work item matching JQL, paginating through all results."
+    inputSchema:
+      type: object
+      properties:
+        jql:
+          *jql
+      required:
+        - jql
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            *key1
+      required:
+        - keys
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-project-list
+    path:
+      - jira
+      - project
+      - list
+    name: jira project list
+    description: Read at most 100 visible Jira projects.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-project-view
+    path:
+      - jira
+      - project
+      - view
+    name: jira project view
+    description: Read one Jira project.
+    inputSchema:
+      type: object
+      properties:
+        key:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Z][A-Z0-9_]*$"
+      required:
+        - key
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-comment-list
+    path:
+      - jira
+      - workitem
+      - comment
+      - list
+    name: jira workitem comment list
+    description: Read one bounded page of work item comments.
+    inputSchema:
+      type: object
+      properties:
+        key:
+          *key
+        limit:
+          *limit
+      required:
+        - key
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-attachment-list
+    path:
+      - jira
+      - workitem
+      - attachment
+      - list
+    name: jira workitem attachment list
+    description: Read attachment metadata without downloading files.
+    inputSchema:
+      type: object
+      properties:
+        key:
+          *key
+      required:
+        - key
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-link-list
+    path:
+      - jira
+      - workitem
+      - link
+      - list
+    name: jira workitem link list
+    description: Read links for one work item.
+    inputSchema:
+      type: object
+      properties:
+        key:
+          *key
+      required:
+        - key
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-workitem-list-watchers
+    path:
+      - jira
+      - workitem
+      - list-watchers
+    name: jira workitem list-watchers
+    description: Read watchers for one work item.
+    inputSchema:
+      type: object
+      properties:
+        key:
+          *key
+      required:
+        - key
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-board-search
+    path:
+      - jira
+      - board
+      - search
+    name: jira board search
+    description: "Read at most 100 boards, optionally matching a name or type."
+    inputSchema:
+      type: object
+      properties:
+        name:
+          *jql
+        type:
+          type: string
+          enum:
+            - scrum
+            - kanban
+            - simple
+        limit:
+          *limit
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: jira-board-view
+    path:
+      - jira
+      - board
+      - view
+    name: jira board view
+    description: Read one Jira board.
+    inputSchema:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+        - id
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
