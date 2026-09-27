@@ -1,0 +1,167 @@
+schemaVersion: 1
+id: valdr-tools.user.maven
+revision: 1.1.1
+name: Maven
+icon: cube
+description: Run configurable Maven goals in the workflow working directory and return whether the build passed, with a concise summary or error excerpt and a local build log.
+files:
+  - path: runner.mjs
+  - path: redaction.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    - JAVA_HOME
+limits:
+  timeoutSeconds: 280
+  maxInputBytes: 65536
+  maxResultBytes: 16384
+  maxLogBytes: 4096
+actions:
+  - id: version
+    path:
+      - version
+    name: version
+    description: "Read the Maven version, preferring the executable project wrapper."
+    inputSchema:
+      type: object
+      properties:
+        javaHome:
+          &javaHome
+          type: string
+          minLength: 1
+          maxLength: 2048
+          pattern: ^/
+          description: Optional absolute JDK home; overrides inherited JAVA_HOME.
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        summary:
+          &summary
+          type: string
+        durationMs:
+          &durationMs
+          type: integer
+          minimum: 0
+        exitCode:
+          &exitCode
+          type: integer
+          const: 0
+        logPath:
+          &logPath
+          type: string
+        logTruncated:
+          &logTruncated
+          type: boolean
+        testSummary:
+          &testSummary
+          type: string
+          description: "Last observed Maven test summary line, not an aggregate across modules."
+        version:
+          type: string
+      required:
+        - summary
+        - durationMs
+        - exitCode
+        - logPath
+        - logTruncated
+        - version
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: build
+    path:
+      - build
+    name: build
+    description: Run selected lifecycle phases or plugin goals. Returns result passed or failed with a summary, error excerpt, and local log path so a workflow can route a failed build; the action fails only when Maven cannot run, times out, or is stopped.
+    inputSchema:
+      type: object
+      properties:
+        goals:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 128
+            pattern: "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+          description: "Literal Maven phases or plugin goals; defaults to [\"package\"]. Use [\"clean\", \"verify\"] for a clean verification."
+        properties:
+          type: object
+          maxProperties: 30
+          propertyNames:
+            pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+          additionalProperties:
+            anyOf:
+              - type: string
+                maxLength: 2048
+              - type: number
+              - type: boolean
+          description: "Maven properties passed as literal -Dname=value arguments, for example skipTests, test, or skipITs."
+        modules:
+          type: array
+          maxItems: 20
+          items:
+            &items
+            type: string
+            maxLength: 128
+            pattern: "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+          description: Optional reactor modules for -pl.
+        profiles:
+          type: array
+          maxItems: 20
+          items:
+            *items
+          description: Optional profiles for -P.
+        alsoMake:
+          type: boolean
+          description: Also build dependencies of selected modules (-am).
+        javaHome:
+          *javaHome
+        timeoutSeconds:
+          type: integer
+          minimum: 1
+          maximum: 270
+          description: Build timeout in seconds; defaults to 240.
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        result:
+          type: string
+          enum:
+            - passed
+            - failed
+          description: "passed when Maven exits zero; failed when the build ran and exited nonzero."
+        summary:
+          *summary
+        errorExcerpt:
+          type: string
+          maxLength: 2000
+          description: "The first distinct Maven error lines (up to ten, without Maven's closing boilerplate), or the last stderr lines when Maven printed none; redacted and newline separated. Empty when the build passed."
+        durationMs:
+          *durationMs
+        exitCode:
+          type: integer
+          minimum: 0
+        logPath:
+          *logPath
+        logTruncated:
+          *logTruncated
+        testSummary:
+          *testSummary
+      required:
+        - result
+        - summary
+        - errorExcerpt
+        - durationMs
+        - exitCode
+        - logPath
+        - logTruncated
+      additionalProperties: false
+    execution: supported
+    sideEffects: write
+    retry: manual

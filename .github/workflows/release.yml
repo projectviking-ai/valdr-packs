@@ -9,8 +9,10 @@ on:
       - commands/**
       - valdr-packs/valdr/**
       - valdr-packs/valdr-workflow/**
+      - valdr-packs/valdr-tools/**
       - scripts/build-valdr-tier.mjs
       - scripts/generate-valdr-pack.mjs
+      - scripts/generate-user-workflow-cli-tools.mjs
       - scripts/validate-valdr-pack.mjs
       - scripts/lib/**
       - VERSION
@@ -23,7 +25,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
@@ -33,6 +35,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Set up Bun for generated tool checks
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
 
       - name: Read repository version
         id: version
@@ -73,8 +80,8 @@ jobs:
           mkdir -p release-cli
           cd release-cli
           gh release download "v${CLI_VERSION}" --repo projectviking-ai/valdr-releases \
-            --pattern "valdr-v${CLI_VERSION}-macos-arm64.tar.gz" \
-            --pattern "valdr-v${CLI_VERSION}-macos-arm64.tar.gz.sha256"
+            --pattern "valdr-v${CLI_VERSION}-linux-x64.tar.gz" \
+            --pattern "valdr-v${CLI_VERSION}-linux-x64.tar.gz.sha256"
 
       - name: Verify and extract pinned Valdr CLI
         id: valdr
@@ -82,8 +89,8 @@ jobs:
           CLI_VERSION: ${{ steps.cli-version.outputs.value }}
         run: |
           cd release-cli
-          shasum -a 256 -c "valdr-v${CLI_VERSION}-macos-arm64.tar.gz.sha256"
-          tar -xzf "valdr-v${CLI_VERSION}-macos-arm64.tar.gz"
+          sha256sum -c "valdr-v${CLI_VERSION}-linux-x64.tar.gz.sha256"
+          tar -xzf "valdr-v${CLI_VERSION}-linux-x64.tar.gz"
           actual_version="$(bin/valdr version | awk 'NR == 1 { print $2 }')"
           if [ -z "$actual_version" ] || [ "$actual_version" != "$CLI_VERSION" ]; then
             echo "Expected Valdr CLI ${CLI_VERSION}, got: $actual_version" >&2
@@ -109,6 +116,7 @@ jobs:
             build/valdr-vanguard.valdr-pack.tar.gz \
             build/valdr-sovereign.valdr-pack.tar.gz \
             build/valdr-workflow.valdr-pack.tar.gz \
+            build/valdr-tools.valdr-pack.tar.gz \
             --target "${GITHUB_SHA}" \
             --title "v${VERSION}" \
             --notes "Valdr pack release v${VERSION}"

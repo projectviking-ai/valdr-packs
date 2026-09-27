@@ -324,5 +324,9 @@ Two fields no longer sit on this list. `detached` is executable on a launch or R
 - Every gate that can stop the run carries a `reason` output that states **what the gate required**, not only what it got. `"${steps.check.outputs.summary}"` alone echoes the upstream verdict and leaves the expectation recoverable only from the definition — every future diagnosis then pays for a definition fetch. Write `"Readiness outcome was ${steps.check.outputs.outcome}; preparation requires task_ready."`
 - The workflow has been driven at least once through `test_definition`, or you have said that it has not.
 
+## Local user tools (Valdr 0.3.3+)
+
+A step that calls an imported `<pack>.user.<name>` tool: hot-load `valdr-workflow.verdandi.user-tools` before writing it.
+
 <!--</instructions>-->
 <!--</capability>-->

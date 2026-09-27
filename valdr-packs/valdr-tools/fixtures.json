@@ -1,0 +1,42 @@
+[
+  {
+    "input": {
+      "text": "Hello Valdr\nTools are ready."
+    },
+    "data": {
+      "characters": 28,
+      "words": 5,
+      "lines": 2
+    }
+  },
+  {
+    "input": {
+      "text": ""
+    },
+    "data": {
+      "characters": 0,
+      "words": 0,
+      "lines": 0
+    }
+  },
+  {
+    "input": {
+      "text": "  café 👋\n\tready\r\n"
+    },
+    "data": {
+      "characters": 17,
+      "words": 3,
+      "lines": 3
+    }
+  },
+  {
+    "input": {
+      "text": "\t\r\n\f\u000b "
+    },
+    "data": {
+      "characters": 6,
+      "words": 0,
+      "lines": 2
+    }
+  }
+]

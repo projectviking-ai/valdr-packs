@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.sprint.from-tasks
   name: Execute Sprint From Tasks
   description: Create and execute one sprint from an explicit ordered task list.
-  version: 0.17.0
+  version: 0.18.0
   pack: valdr-workflow
   source:
     kind: capability
@@ -14,8 +14,8 @@ workflow:
     projectKey: { type: string, required: true }
     taskKeys: { type: array, required: true }
     sprintName: { type: string, required: true }
-    startTs: { type: number, required: true }
-    endTs: { type: number, required: true }
+    startTs: { type: integer, required: true }
+    endTs: { type: integer, required: true }
     routerLauncherConfigKey: { type: string, required: true }
     reviewerLauncherConfigKey: { type: string, required: true }
     schedulerLauncherConfigKey: { type: string, required: true }

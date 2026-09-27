@@ -1,0 +1,305 @@
+schemaVersion: 1
+id: valdr-tools.user.aws
+revision: 1.0.5
+name: AWS CLI
+icon: server-stack
+description: Starter read actions for the host-installed aws CLI. Extend the metadata for your workflows; host installation and authentication are required.
+files:
+  - path: runner.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    - AWS_PROFILE
+    - AWS_REGION
+    - AWS_DEFAULT_REGION
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - AWS_SESSION_TOKEN
+    - AWS_CONFIG_FILE
+    - AWS_SHARED_CREDENTIALS_FILE
+limits:
+  timeoutSeconds: 30
+  maxInputBytes: 65536
+  maxResultBytes: 1048576
+  maxLogBytes: 4096
+actions:
+  - id: version
+    path:
+      - version
+    name: version
+    description: Read the installed CLI version without signing in.
+    inputSchema:
+      type: object
+      properties:
+        {}
+      required:
+        []
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        version:
+          type: string
+      required:
+        - version
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: sts-get-caller-identity
+    path:
+      - sts
+      - get-caller-identity
+    name: sts get-caller-identity
+    description: Read the configured AWS caller identity.
+    inputSchema:
+      type: object
+      properties:
+        profile:
+          &profile
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_.:/@+-]*$"
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: s3-list-buckets
+    path:
+      - s3api
+      - list-buckets
+    name: s3api list-buckets
+    description: List the first bounded page of account buckets.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          &limit
+          type: integer
+          minimum: 1
+          maximum: 100
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: ec2-describe-instances
+    path:
+      - ec2
+      - describe-instances
+    name: ec2 describe-instances
+    description: List the first bounded page of compute instance reservations.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: ec2-describe-volumes
+    path:
+      - ec2
+      - describe-volumes
+    name: ec2 describe-volumes
+    description: List the first bounded page of block storage volumes.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: ec2-describe-vpcs
+    path:
+      - ec2
+      - describe-vpcs
+    name: ec2 describe-vpcs
+    description: List the first bounded page of virtual networks.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: iam-list-users
+    path:
+      - iam
+      - list-users
+    name: iam list-users
+    description: List the first bounded page of IAM user metadata; credentials are not returned.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: lambda-list-functions
+    path:
+      - lambda
+      - list-functions
+    name: lambda list-functions
+    description: List the first bounded page of Lambda function metadata.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: rds-describe-db-instances
+    path:
+      - rds
+      - describe-db-instances
+    name: rds describe-db-instances
+    description: List the first bounded page of database instance metadata.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: dynamodb-list-tables
+    path:
+      - dynamodb
+      - list-tables
+    name: dynamodb list-tables
+    description: List the first bounded page of table names.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: ecr-describe-repositories
+    path:
+      - ecr
+      - describe-repositories
+    name: ecr describe-repositories
+    description: List the first bounded page of container repositories.
+    inputSchema:
+      type: object
+      properties:
+        limit:
+          *limit
+        profile:
+          *profile
+        region:
+          type: string
+          minLength: 1
+          maxLength: 256
+          pattern: "^[a-z][a-z0-9-]*$"
+      required:
+        []
+      additionalProperties: false
+    outputSchema: true
+    execution: supported
+    sideEffects: read
+    retry: idempotent

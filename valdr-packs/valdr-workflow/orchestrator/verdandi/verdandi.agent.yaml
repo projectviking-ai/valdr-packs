@@ -32,6 +32,9 @@ capabilities:
   - key: valdr-workflow.verdandi.debugging
     role: workflow
     hot-load: true
+  - key: valdr-workflow.verdandi.user-tools
+    role: workflow
+    hot-load: true
 
   - key: valdr.core.tools.pm-workflow
     role: integration

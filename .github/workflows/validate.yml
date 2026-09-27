@@ -9,7 +9,7 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: macos-14
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
@@ -19,6 +19,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Set up Bun for generated tool checks
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
 
       - name: Read pinned Valdr CLI version
         id: cli-version
@@ -38,8 +43,8 @@ jobs:
           mkdir -p release-cli
           cd release-cli
           gh release download "v${CLI_VERSION}" --repo projectviking-ai/valdr-releases \
-            --pattern "valdr-v${CLI_VERSION}-macos-arm64.tar.gz" \
-            --pattern "valdr-v${CLI_VERSION}-macos-arm64.tar.gz.sha256"
+            --pattern "valdr-v${CLI_VERSION}-linux-x64.tar.gz" \
+            --pattern "valdr-v${CLI_VERSION}-linux-x64.tar.gz.sha256"
 
       - name: Verify and extract pinned Valdr CLI
         id: valdr
@@ -47,8 +52,8 @@ jobs:
           CLI_VERSION: ${{ steps.cli-version.outputs.value }}
         run: |
           cd release-cli
-          shasum -a 256 -c "valdr-v${CLI_VERSION}-macos-arm64.tar.gz.sha256"
-          tar -xzf "valdr-v${CLI_VERSION}-macos-arm64.tar.gz"
+          sha256sum -c "valdr-v${CLI_VERSION}-linux-x64.tar.gz.sha256"
+          tar -xzf "valdr-v${CLI_VERSION}-linux-x64.tar.gz"
           actual_version="$(bin/valdr version | awk 'NR == 1 { print $2 }')"
           if [ -z "$actual_version" ] || [ "$actual_version" != "$CLI_VERSION" ]; then
             echo "Expected Valdr CLI ${CLI_VERSION}, got: $actual_version" >&2
@@ -59,7 +64,7 @@ jobs:
       - name: Validate packs and run script tests
         run: make ci-validate
 
-      - name: Validate Valdr Workflow Pack
+      - name: Validate Workflow and Tools packs
         env:
           VALDR_BIN: ${{ steps.valdr.outputs.path }}
-        run: make validate-valdr-workflow
+        run: make validate-valdr-workflow validate-user-workflow-tools

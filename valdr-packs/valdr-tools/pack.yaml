@@ -1,0 +1,11 @@
+schemaVersion: 1.0
+pack: valdr-tools
+name: Valdr Tools
+version: 1.0.7
+description: Portable user workflow tools and harmless cross-language authoring starters.
+license: MIT
+homepage: https://valdr.ai
+repository: https://github.com/projectviking-ai/valdr-packs
+includes:
+  - path: tools
+    description: User-tool manifests and their explicit source inventories.

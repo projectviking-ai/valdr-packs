@@ -1,0 +1,4 @@
+interface:
+  display_name: "Valdr Workflow Tools"
+  short_description: "Author typed local tools and CLI adapters for Valdr"
+  default_prompt: "Use $valdr-workflow-tools to author and validate a portable workflow tool pack."

@@ -7,18 +7,19 @@ Valdr packs are portable, self-describing bundles of agents, prompts, and capabi
 
 ## Quick Start
 
-Download the Sovereign and Workflow packs from the same release and use that release's pinned Valdr CLI:
+Download the Sovereign, Workflow, and Tools packs from the same release and use that release's pinned Valdr CLI:
 
 | Component | Release asset |
 | --- | --- |
 | Valdr CLI | `valdr-v<cli-version>-macos-arm64.tar.gz` plus its `.sha256` |
 | Valdr Sovereign pack | `valdr-sovereign.valdr-pack.tar.gz` |
 | Valdr Workflow pack | `valdr-workflow.valdr-pack.tar.gz` |
+| Valdr Tools pack | `valdr-tools.valdr-pack.tar.gz` |
 
 1. Read [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag, then download that CLI version from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases).
 2. Download `valdr-sovereign.valdr-pack.tar.gz` from your chosen release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
 3. Download `valdr-workflow.valdr-pack.tar.gz` from that same release.
-4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow pack. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
+4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow and Tools packs. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
 5. Configure launcher presets, register eligible bot agents, and attach a Git repository project before starting a workflow.
 
 The Workflow pack intentionally fails closed when it cannot identify an eligible executor, reviewer, or launcher preset. Use `pm_provider` with `action: list_presets` to find launcher configuration keys and `pm_agent` with `action: list` to inspect eligible bot handles. Router and sizing presets must honour strict JSON output; implementation, review, planning, and pull-request writer presets also need repository access where their input descriptions say so. Full setup and entrypoint details are in the [Workflow pack guide](valdr-packs/valdr-workflow/README.md).
@@ -207,7 +208,7 @@ An independently versioned companion to Sovereign that adds 24 workflow definiti
 | `build-valdr-raider` | Build the Raider tier archive |
 | `build-valdr-vanguard` | Build the Vanguard tier archive |
 | `build-valdr-sovereign` | Build the Sovereign tier archive |
-| `build-valdr-all` | Build Raider, Vanguard, Sovereign, and Workflow archives with the pinned CLI |
+| `build-valdr-all` | Build Raider, Vanguard, Sovereign, Workflow, and Tools archives with the pinned CLI |
 
 ### Generating Pack Archives
 
@@ -246,20 +247,35 @@ node scripts/bump-version.mjs major
 node scripts/bump-version.mjs "<version>"
 ```
 
-For any pack update, including Workflow changes, bump `VERSION` and merge to `main`. GitHub Actions validates and builds all four archives, creates the matching tag, and publishes one GitHub Release containing Raider, Vanguard, Sovereign, and Workflow. No manual tag creation, build, or release trigger is needed. An existing release tag is rejected; use a new version for each release.
+For any pack update, including Workflow or Tools changes, bump `VERSION` and merge to `main`. GitHub Actions validates and builds all five archives, creates the matching tag, and publishes one GitHub Release containing Raider, Vanguard, Sovereign, Workflow, and Tools. No manual tag creation, build, or release trigger is needed. An existing release tag is rejected; use a new version for each release.
 
-The three tier archives use the repository version internally. The Workflow archive retains its definition version from [`valdr-packs/valdr-workflow/pack.yaml`](valdr-packs/valdr-workflow/pack.yaml); it is distributed in the same repository release.
+The three tier archives use the repository version internally. The Workflow and Tools archives retain their pack versions from their own `pack.yaml` files; they are distributed in the same repository release.
 
 ### CI Automation
 
-- Pull requests run pack validation and script tests through `.github/workflows/validate.yml`.
-- Pushes to `main` trigger `.github/workflows/release.yml` for pack sources, shared build scripts, `VERSION`, `VALDR_WORKFLOW_CLI_VERSION`, `Makefile`, or the release workflow itself. It verifies the pinned Valdr CLI, validates the repository, builds all four archives, and publishes them to one `v<version>` GitHub Release for the pushed commit.
+- Pull requests run pack validation and the lightweight script tests through `.github/workflows/validate.yml`. The full language-starter suite remains a local check.
+- Pushes to `main` trigger `.github/workflows/release.yml` for pack sources, shared build scripts, `VERSION`, `VALDR_WORKFLOW_CLI_VERSION`, `Makefile`, or the release workflow itself. It verifies the pinned Valdr CLI, validates the repository, builds all five archives, and publishes them to one `v<version>` GitHub Release for the pushed commit.
 
 For local verification:
 
 ```bash
 make ci-validate
+make test-user-workflow-tools
 ```
+
+## User workflow tools
+
+The standalone [Valdr Tools pack](valdr-packs/valdr-tools/README.md) includes language starters, CLI adapters (`gh`, `aws`, `gcloud`, `acli`), and Maven builds. Build once and import the archive into each Valdr installation. Manage installed tools in **Workflows → Tools**; import/export remains in **Settings → Valdr Packs**. Each tool has a named Builder entry with its manifest icon. New steps use the latest installed revision; existing pins stay unchanged. Workflows select the working directory and execute tools on the host, like Command steps. Import does not execute code, install dependencies, or authenticate CLIs.
+
+With a compatible Valdr CLI installed, run from this checkout:
+
+```sh
+make validate-user-workflow-tools
+make test-user-workflow-tools
+make build-valdr-tools
+```
+
+See the [pack README](valdr-packs/valdr-tools/README.md) for runtime prerequisites and the [authoring skill](skills/valdr-workflow-tools/SKILL.md) for the process contract, CLI discovery, and revision updates.
 
 ## Creating Your Own Pack
 

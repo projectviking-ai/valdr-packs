@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: valdr-tools.user.typescript
+revision: 1.0.3
+icon: variable
+name: Typescript text summary
+description: "Count Unicode characters, ASCII-whitespace-separated words, and LF-separated lines without reading files or accessing the network."
+files:
+  - path: main.ts
+process:
+  executable: bun
+  args:
+    - main.ts
+  inheritEnv: []
+limits:
+  timeoutSeconds: 10
+  maxInputBytes: 65536
+  maxResultBytes: 4096
+  maxLogBytes: 4096
+actions:
+  - id: summarize
+    path:
+      - text
+      - summarize
+    name: Summarize text
+    description: "Count Unicode code points, words separated by ASCII whitespace, and LF-separated lines. Empty text has zero lines."
+    inputSchema:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        characters:
+          type: integer
+          minimum: 0
+        words:
+          type: integer
+          minimum: 0
+        lines:
+          type: integer
+          minimum: 0
+      required:
+        - characters
+        - words
+        - lines
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
