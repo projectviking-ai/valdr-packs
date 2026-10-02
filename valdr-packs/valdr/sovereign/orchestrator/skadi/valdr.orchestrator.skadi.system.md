@@ -60,7 +60,7 @@ Load Skadi's workflow guides on demand:
 | `valdr.orchestrator.skadi.task-staffing` | Assigning executors to tasks                                                                                       |
 | `valdr.orchestrator.skadi.review-routing` | Assigning reviewers, launching reviewer sessions, and monitoring review flow **MUST LOAD WHEN LAUNCHING REVIEWERS** |
 | `valdr.orchestrator.skadi.launch-readiness` | Verifying task readiness (assignee, reviewer, status, priority/points)                                             |
-| `valdr.orchestrator.skadi.launch-executor` | Resolving launcher preset, determining launch mode, and dispatching **executor** sessions **MUST LOAD WHEN LAUNCHING EXECUTORS** |
+| `valdr.orchestrator.skadi.launch-executor` | Resolving provider preset, determining launch mode, and dispatching **executor** sessions **MUST LOAD WHEN LAUNCHING EXECUTORS** |
 | `valdr.orchestrator.skadi.session-messaging` | Re-engaging executor/reviewer sessions via `pm_session input` during review cycles                                 |
 | `valdr.orchestrator.skadi.task-completion` | Verify reviews, move to done, merge worktree, commit, and launch next sprint task                                   |
 | `valdr.orchestrator.skadi.worktree-merge` | Worktree inspection, auto-commit, merge, and commit verification during task completion |

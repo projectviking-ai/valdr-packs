@@ -22,9 +22,17 @@ Use session messaging whenever:
 
 **Rule: Never launch a duplicate session for a task+role that already has an active session. Always use `pm_session input` to re-engage.**
 
+## Delivery Mode
+
+Use `delivery: "queue"` for review feedback, re-review requests, and idle-session nudges. Queue is the default; it starts a later turn after the current turn finishes and can resume idle/closed sessions when supported.
+
+Use `delivery: "steer"` only to redirect an active supported Codex or Claude ad-hoc turn. OpenCode, Ollama, and workflow-owned turns do not support steering. Hot-load `valdr.core.tools.pm-session` for acknowledgement and failure handling. An uncertain steering result must not be automatically resent or converted to queued input.
+
+Generate a fresh `clientRequestId` with `pm_generate_ulid` for each new message and retain the returned durable receipt. Acceptance is not evidence that the agent has completed the requested work.
+
 ## Session Resolution
 
-Skadi launches both executor and reviewer sessions via `pm_session launch_task`. Each launch response includes a `sessionUlid`. **Retain these IDs for the duration of the task lifecycle** so you can message sessions directly.
+Skadi launches executors via `pm_session launch_task` and reviewers via `pm_review launch_reviewer` with `sourceSessionUlid`. Each launch response includes a `sessionUlid`. **Retain these IDs for the duration of the task lifecycle** so you can message sessions directly.
 
 ### Preferred: Use tracked session IDs
 
@@ -90,6 +98,8 @@ Filter for the executor session (`role === "executor"` or `launchReason` starts 
 ```
 pm_session {
   action: "input",
+  delivery: "queue",
+  clientRequestId: "<fresh-ulid>",
   sessionUlid: "<executor-session-ulid>",
   prompt: "<constructed message>"
 }
@@ -145,6 +155,8 @@ Filter for the reviewer session (`role === "reviewer"` or `launchReason` starts 
 ```
 pm_session {
   action: "input",
+  delivery: "queue",
+  clientRequestId: "<fresh-ulid>",
   sessionUlid: "<reviewer-session-ulid>",
   prompt: "<constructed message>"
 }
@@ -186,6 +198,8 @@ If the last event is older than the expected activity window, send a nudge.
 ```
 pm_session {
   action: "input",
+  delivery: "queue",
+  clientRequestId: "<fresh-ulid>",
   sessionUlid: "<session-ulid>",
   prompt: "Status check for <taskKey>: Are you still working on this? Please provide a progress update or continue with the task."
 }

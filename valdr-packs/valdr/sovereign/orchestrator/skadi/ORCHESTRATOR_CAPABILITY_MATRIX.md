@@ -17,7 +17,7 @@
 | `valdr.core.tools.pm-provider` | `integration` | `valdr` | `yes` | `valdr/vanguard/core/tools/valdr.core.tools.pm-provider.md` |
 | `valdr.core.sizing.ai-story-points` | `context` | `valdr` | `yes` | `valdr/core/sizing/valdr.core.sizing.ai-story-points.md` |
 
-**Launcher presets:** Skadi owns launcher preset use across its executor, reviewer, and session launch workflows. `valdr.core.tools.pm-provider` documents the `list_presets` / `create_preset` surface those workflows rely on to resolve provider defaults and bind env-ref-backed presets when launching sessions.
+**Provider presets:** Skadi owns provider preset use across its executor, reviewer, and session launch workflows. `valdr.core.tools.pm-provider` documents the `list_presets` / `create_preset` surface those workflows rely on to resolve provider defaults and bind env-ref-backed presets when launching sessions.
 
 ## Agent Registration
 
@@ -53,4 +53,4 @@ pm_capability { action: "prompt", key: "valdr.core.knowledge.memory-append" }
 pm_capability { action: "prompt", key: "valdr.core.sizing.ai-story-points" }
 ```
 
-Load `valdr.core.tools.pm-knowledge` only when the tool contract or validation behavior needs diagnosis. Load `valdr.core.tools.pm-provider` when resolving launcher presets or provider defaults for a session launch.
+Load `valdr.core.tools.pm-knowledge` only when the tool contract or validation behavior needs diagnosis. Load `valdr.core.tools.pm-provider` when resolving provider presets or provider defaults for a session launch.

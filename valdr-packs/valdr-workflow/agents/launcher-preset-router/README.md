@@ -1,6 +1,6 @@
-# Launcher Preset Router
+# Provider Preset Router
 
-`launcher-preset-router` reads a task and the registered launcher presets, and returns the preset key the task should be executed with — or `unknown` when nothing distinguishes the candidates. It routes on what presets **declare** about themselves, never on inference from model names.
+`launcher-preset-router` reads a task and the registered provider presets, and returns the preset key the task should be executed with — or `unknown` when nothing distinguishes the candidates. It routes on what presets **declare** about themselves, never on inference from model names.
 
 ## Agent
 
@@ -35,7 +35,7 @@ A workflow `session_output` gate parses this, maps `$.outcome` to a workflow out
 
 ## Wiring
 
-Use the [Choose Launcher Preset](../../workflows/task/valdr-workflow.workflow.preset-routing.workflow.yaml) workflow, designed to be called as a subworkflow:
+Use the [provider preset selection](../../workflows/task/valdr-workflow.workflow.preset-routing.workflow.yaml) workflow, designed to be called as a subworkflow:
 
 ```yaml
 - key: pick_preset

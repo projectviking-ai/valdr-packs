@@ -85,6 +85,8 @@ pm_review { action: "list", taskKey: "{{taskKey}}" }
    ```
    pm_session {
      action: "input",
+     delivery: "queue",
+     clientRequestId: "<pm_generate_ulid>",
      sessionUlid: "<reviewer-session-ulid>",
      prompt: "Fixes applied for {{taskKey}}. Changes: <brief summary>. Please re-review."
    }

@@ -1,7 +1,7 @@
 <!--<capability id="valdr.core.tools.pm-provider" pack="valdr" role="integration">-->
 # Tool: pm_provider
 
-Provider and launcher preset management operations. Use this tool to discover launcher presets and registered provider defaults, and to create presets that point sessions at a provider type with optional env refs and worktree settings.
+Provider setup and preset management operations. Use this tool to discover provider presets and registered provider defaults, and to create presets that point sessions at a provider type with optional env refs and worktree settings.
 
 <!--<instructions>-->
 
@@ -9,8 +9,8 @@ Provider and launcher preset management operations. Use this tool to discover la
 
 | Action | Purpose | Required Params |
 |--------|---------|-----------------|
-| `list_presets` | List launcher presets, optionally including registered provider defaults | — |
-| `create_preset` | Create a launcher preset bound to a registered provider type | `key`, `displayName`, `providerType` |
+| `list_presets` | List provider presets, optionally including registered provider defaults | — |
+| `create_preset` | Create a provider preset bound to a registered provider type | `key`, `displayName`, `providerType` |
 | `help` | Show structured tool help | — |
 
 ## Help Action Response
@@ -28,7 +28,7 @@ Provider and launcher preset management operations. Use this tool to discover la
 
 ## Usage Patterns
 
-**List launcher presets with provider defaults (default):**
+**List provider presets with provider defaults (default):**
 ```
 pm_provider { action: "list_presets" }
 ```
@@ -97,7 +97,7 @@ pm_provider {
 - **Provider defaults by default** — `list_presets` includes registered provider defaults unless you pass `includeProviderDefaults: false`.
 - **Registered provider types** — `providerType` must name a provider type the server already knows.
 - **Secrets via env refs** — Persist references, not values; the secret is resolved at launch and stays out of the preset record.
-- **Stable keys** — `key` identifies the preset for launcher workflows; choose a durable, descriptive value.
+- **Stable keys** — `key` identifies the preset used to start sessions; choose a durable, descriptive value.
 
 <!--</instructions>-->
 <!--</capability>-->

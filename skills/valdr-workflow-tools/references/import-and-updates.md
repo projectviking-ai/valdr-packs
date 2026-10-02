@@ -32,8 +32,9 @@ in the inspector. Omitted or unknown icons use the normal tool glyph.
 
 Running a workflow executes selected tools with ordinary host permissions, like Command
 steps. Review their source and effects before running. The workflow chooses the directory;
-optional step-level `cwd` overrides it. Manifest `inheritEnv` names are inherited directly
-when present, with internal and unsafe names filtered. Baseline HOME/PATH remain available,
+optional step-level `cwd` overrides it. Manifest `inheritEnv` selects additional names
+from the UI/MCP launch environment or [shared startup references](contract.md#working-directory-and-environment),
+with internal and unsafe names filtered. Baseline HOME/PATH remain available,
 and a CLI may use existing config/keychain credentials. Keep secret values out of manifests
 and workflow inputs; request environment names instead. Do not print credentials in diagnostics.
 

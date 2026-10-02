@@ -64,7 +64,7 @@ pm_capability { action: "prompt", key: "<capability-key>" }
 | `valdr.core.tools.pm-review` | `pm_review` contract details when authoring or reading a review step |
 | `valdr.core.tools.pm-audit` | Reading a session transcript or receipt without blowing the output limit |
 | `valdr.core.tools.pm-agent` | `pm_agent` contract details when checking handles |
-| `valdr.core.tools.pm-provider` | Confirming a launcher preset key exists |
+| `valdr.core.tools.pm-provider` | Confirming a provider preset key exists |
 | `valdr.core.tools.pm-health` | Confirming which server you are talking to |
 | `valdr.core.tools.pm-capability` | The contract for the hot-load call itself |
 
