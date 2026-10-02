@@ -16,7 +16,7 @@ Agent session operations.
 | `config` | Get session config | `sessionUlid` |
 | `spec` | Get session spec | `sessionUlid` |
 | `live_deltas` | Stream session updates | `sessionUlid` |
-| `input` | Send input to session (incl. idle/closed sessions that can resume) | `sessionUlid`, `prompt` |
+| `input` | Queue a follow-up (default), or steer an active ad-hoc turn | `sessionUlid`, `prompt`, `clientRequestId` |
 | `start` | Create a provider-backed session from explicit prompts/config | `clientRequestId`, `actor`, `contextRef`, `role`, `provider`, `systemPrompt` |
 | `run` | Dispatch a turn for a started session | `sessionUlid` |
 | `abort` | Abort an active session's running turn | `sessionUlid` |
@@ -70,9 +70,17 @@ pm_session {
   launcherConfigKey: "coder-claude",
   actor: "requester-handle",
   clientRequestId: "<ulid>",
-  run: true
+  run: true,
+  worktree: {
+    requireLinked: true,
+    branchName: "feature/proj-123-rate-limiting"
+  }
 }
 ```
+
+`worktree.branchName` requests a full Git branch name for a new linked task worktree. It requires `requireLinked: true`. If a local branch with that name exists, Valdr appends `-1`, `-2`, and so on; use the returned `branchName`. **Omitting `branchName` keeps the existing automatic branch-naming behavior**; linked worktrees default to `valdr-task/<taskKey>`.
+
+The task's project must have an available registered Git repository, and the preset must allow worktree creation. Use `worktree.repoId` if repository selection is ambiguous. Do not combine linked mode with `branchPrefix` or `disabled`, or use it when reusing a source worktree. Branch naming applies to `launch_task` creating a new worktree, rather than `start`, `launch_prompt`, or session continuation.
 
 **Launch task session (ad-hoc — custom prompt, no capability system prompt):**
 
@@ -90,16 +98,33 @@ pm_session {
 }
 ```
 
-**Send input to session:**
+**Queue a follow-up for the next turn:**
 ```
 pm_session {
   action: "input",
+  delivery: "queue",
+  clientRequestId: "<fresh-ulid>",
   sessionUlid: "<session-id>",
   prompt: "Continue with the implementation"
 }
 ```
 
-> Closed or idle sessions remain valid `input` targets when the launcher supports resume — `input` wakes them rather than requiring a fresh launch.
+`delivery` is optional and defaults to `queue`. Queued input waits for the current turn to finish; idle or closed sessions can resume when the provider supports it. Generate a fresh `clientRequestId` with `pm_generate_ulid` for each new message. Repeating the same ID with the same prompt, target, and delivery replays its durable result.
+
+**Steer an active turn:**
+```
+pm_session {
+  action: "input",
+  delivery: "steer",
+  clientRequestId: "<fresh-ulid>",
+  sessionUlid: "<session-id>",
+  prompt: "Focus on the failing test before making further changes"
+}
+```
+
+Steering requires an active ad-hoc Codex or Claude turn with runtime support. OpenCode, Ollama, idle/closed sessions, and workflow-owned turns do not support steering. Workflow session input remains queued.
+
+Both modes return durable request identity and `baselineSeq`. A queued receipt confirms acceptance for a later turn. For steering, `phase: completed` confirms provider acknowledgement, not completion of the agent's work. A rejected request returns `failed`; uncertain delivery returns `ambiguous`. Do not automatically resend an uncertain steering message with a new ID or switch it to queue: it may already have reached the active turn.
 
 **Start a session (explicit prompts/config — no task-prompt building):**
 ```
@@ -169,7 +194,7 @@ When reviewing, find the worktree from sessions:
 |-------|------|----------|-------|
 | `taskKey` | string | **yes** | Task to execute |
 | `agentHandle` or `agentId` | string | **one required** | Agent identity |
-| `launcherConfigKey` | string | **yes** | Provider preset (e.g. `coder-claude`, `coder-codex`) |
+| `launcherConfigKey` | string | **yes** | Registered preset key from `pm_provider list_presets` (Claude, Codex, OpenCode, or Ollama) |
 | `clientRequestId` | string | **yes** | Idempotency key |
 | `actor` | string | **yes** | Requester handle |
 | `prompt` | string | optional | Custom user prompt — when set, skips auto-built system/turn prompts |
@@ -178,11 +203,14 @@ When reviewing, find the worktree from sessions:
 | `additionalInstructions` | string | optional | Extra instructions appended to built prompt (standard mode only) |
 | `maxRuntimeSeconds` | number | optional | Timeout (1–86400) |
 | `capabilityKeys` | string[] | optional | Override capability keys for prompt building |
-| `worktree` | object | optional | Worktree config (see below) |
+| `worktree` | object | optional | Worktree config |
+| `worktree.repoId` | string | optional | Registered project repository to use |
+| `worktree.requireLinked` | boolean | optional | Create a linked Git worktree for the task |
+| `worktree.branchName` | string | optional | Full name for a new linked task branch; requires `requireLinked: true` |
 | `worktree.disabled` | boolean | optional | Skip worktree provisioning |
 | `worktree.baseRef` | string | optional | Git base ref |
 | `worktree.branchPrefix` | string | optional | Branch prefix |
-| `config` | object | optional | Launcher config overrides |
+| `config` | object | optional | Provider config overrides |
 
 ## Key Rules
 
@@ -192,7 +220,8 @@ When reviewing, find the worktree from sessions:
 - **Ad-hoc vs standard** — Pass `prompt` to skip capability prompts; omit for full auto-built prompts
 - **Skill-based agents** — When agents use skills like `valdr-executor`, prefer ad-hoc mode to avoid duplicate context
 - **`run` action vs `run` flag** — `action: "run"` dispatches a turn on a started session; `run: true` on `launch_task`/`restart` auto-starts the session on creation/resume
-- **Resume over relaunch** — Closed or idle sessions are still valid `input` targets when the launcher supports resume; wake them instead of launching duplicates
+- **Delivery mode** — Queue is the default and supports resume; steer only active supported ad-hoc turns. Preserve uncertain delivery evidence before any retry.
+- **Resume over relaunch** — Closed or idle sessions are still valid queued `input` targets when the provider supports resume; wake them instead of launching duplicates
 - **Purge safety** — Preview deletion scope with `dryRun: true`; pass `deleteFiles: true` to also remove transcript/worktree artifacts
 
 <!--</instructions>-->

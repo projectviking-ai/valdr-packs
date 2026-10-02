@@ -123,6 +123,8 @@ If the review outcome is `changes_requested`, notify the executor so it can act 
    ```
    pm_session {
      action: "input",
+     delivery: "queue",
+     clientRequestId: "<pm_generate_ulid>",
      sessionUlid: "<executor-session-ulid>",
      prompt: "<changes requested message>"
    }

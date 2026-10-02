@@ -5,7 +5,7 @@ metadata:
   version: 1.0.0
 compatibility: Requires Valdr MCP server with PM MCP tools enabled.
 license: MIT
-allowed-tools: mcp__valdr__pm_health mcp__valdr__pm_generate_ulid mcp__valdr__pm_project mcp__valdr__pm_sprint mcp__valdr__pm_task mcp__valdr__pm_review mcp__valdr__pm_agent mcp__valdr__pm_prompt mcp__valdr__pm_capability mcp__valdr__pm_session mcp__valdr__pm_workflow mcp__valdr__vmp
+allowed-tools: mcp__valdr__pm_health mcp__valdr__pm_generate_ulid mcp__valdr__pm_project mcp__valdr__pm_sprint mcp__valdr__pm_task mcp__valdr__pm_review mcp__valdr__pm_agent mcp__valdr__pm_prompt mcp__valdr__pm_capability mcp__valdr__pm_session mcp__valdr__pm_provider mcp__valdr__pm_workflow mcp__valdr__vmp
 ---
 
 # Orchestrator Guide
@@ -70,6 +70,8 @@ If the prompt cannot be loaded, STOP and ask the user for direction.
 
 Follow the loaded orchestrator prompt as the single source of truth.
 Hot-load any workflows or tool docs it references as needed.
+
+For session messages, load `valdr.core.tools.pm-session`: `input` requires a fresh `clientRequestId`; `delivery` defaults to `queue`. `steer` is limited to active supported Codex/Claude ad-hoc turns. Keep workflow-owned and idle-session follow-ups queued. Preserve uncertain steering evidence before any retry.
 
 ---
 

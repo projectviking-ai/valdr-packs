@@ -73,7 +73,7 @@ pm_capability { action: "prompt", key: "valdr.executor.workflow.completion" }
 
 ## Template Variables
 
-The workflow uses template variables injected by the launcher:
+The workflow uses template variables injected by the provider:
 
 | Variable | Purpose |
 |----------|---------|

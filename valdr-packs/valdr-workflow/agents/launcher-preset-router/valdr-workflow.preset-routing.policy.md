@@ -1,8 +1,8 @@
 <!--<capability id="valdr-workflow.preset-routing.policy" pack="valdr-workflow" role="constraints">-->
-# Launcher Preset Routing Policy
+# Provider Preset Routing Policy
 
 <!--<identity>-->
-How to choose a launcher preset: eliminate what cannot do the job, then match the task's cost, speed, and reasoning needs against what presets declare about themselves. Answer `unknown` when nothing distinguishes them.
+How to choose a provider preset: eliminate what cannot do the job, then match the task's cost, speed, and reasoning needs against what presets declare about themselves. Answer `unknown` when nothing distinguishes them.
 <!--</identity>-->
 
 <!--<instructions>-->
@@ -13,7 +13,7 @@ Remove only presets that **cannot perform the work**. These are the sole hard fi
 
 | Filter | Rule |
 |---|---|
-| Code and file work | A task that changes code, tests, or files is eligible only when the live preset declaration satisfies the required file and repository tooling and worktree support. Unknown or absent declarations stay unknown; do not infer them from `providerType`, launcher family, or `config.model`. |
+| Code and file work | A task that changes code, tests, or files is eligible only when the live preset declaration satisfies the required file and repository tooling and worktree support. Unknown or absent declarations stay unknown; do not infer them from `providerType`, provider family, or `config.model`. |
 | Operator exclusion | Exclude a preset whose `tags` or `description` mark it as deprecated, experimental, or not for routing. |
 
 Nothing else is a hard filter. In particular:

@@ -10,4 +10,4 @@
 
 Only the three non-hot-load capabilities are linked to the agent in the registry. The two `valdr.core.tools.*` entries are declared here for pack import and reached at runtime through the system prompt's hot-load table.
 
-`valdr-workflow.base.provider-capabilities` is deliberately **not** bound: it describes launchers, models, and cost, which are the preset router's concern. This router chooses who, not what it runs on.
+`valdr-workflow.base.provider-capabilities` is deliberately **not** bound: it describes providers, models, and cost, which are the preset router's concern. This router chooses who, not what it runs on.

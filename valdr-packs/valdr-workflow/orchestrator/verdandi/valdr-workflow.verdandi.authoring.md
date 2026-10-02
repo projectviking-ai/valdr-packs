@@ -86,7 +86,7 @@ Waiting is a property of the step that causes the wait, not a step of its own. T
 
 ### The rules that decide whether it resolves
 
-**The one-shot turn's work goes in `session.prompt` on the launch step.** Use `session.action: input` only for a later turn on a deliberately reusable session.
+**The one-shot turn's work goes in `session.prompt` on the launch step.** Use `session.action: input` only for a later turn on a deliberately reusable session. Workflow-owned input is queued; `delivery: steer` is an ad-hoc `pm_session input` option and is not supported in workflow session steps.
 
 **`authorizedHandles` and `sourceSessionUlid` are not yours to author.** The runtime freezes both from the exact target session. Authoring either on a session input step is an error.
 

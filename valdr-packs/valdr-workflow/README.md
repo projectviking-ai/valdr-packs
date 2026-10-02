@@ -2,7 +2,7 @@
 
 `valdr-workflow` adds reusable task, sprint, planning, and pull-request workflows to Valdr. It is a companion to the Valdr Sovereign pack.
 
-Download both packs from the same release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases). Read [`VALDR_WORKFLOW_CLI_VERSION`](../../VALDR_WORKFLOW_CLI_VERSION) at that release tag and download the matching CLI from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases):
+Download both packs from the same release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases). Use Valdr 0.3.4 as the runtime, available from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). Source builds and pack validation use the CLI version in [`VALDR_WORKFLOW_CLI_VERSION`](../../VALDR_WORKFLOW_CLI_VERSION) at that release tag.
 
 | Component | Asset |
 | --- | --- |
@@ -12,7 +12,7 @@ Download both packs from the same release on [Valdr Packs releases](https://gith
 
 ## Import
 
-1. Install the exact compatible Valdr CLI.
+1. Install the Valdr runtime version above.
 2. Download the Sovereign and Workflow archives from the same GitHub release.
 3. In the Valdr UI pack import flow, preflight the Sovereign archive, review its plan, and commit it.
 4. Preflight the Workflow archive, confirm that its core capability references resolve, review its plan, and commit it.
@@ -24,7 +24,7 @@ If either pack is already installed, keep active and frozen workflow runs intact
 Before starting a workflow:
 
 1. Attach a Git repository to a Valdr project.
-2. Configure launcher presets in Valdr. Use `pm_provider` with `action: list_presets` to inspect their keys and declared capabilities.
+2. Configure provider presets in Valdr. Use `pm_provider` with `action: list_presets` to inspect their keys and declared capabilities.
 3. Register bot agents for implementation and review. Use `pm_agent` with `action: list`, `kinds: ["bot"]`, and the required role to inspect eligible handles. Routing considers declared role, tags, capabilities, usable prompt, and operator exclusions; it does not guess from a handle or model name.
 4. Choose a human `operatorHandle` for correction and pull-request approval gates.
 

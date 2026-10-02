@@ -78,10 +78,14 @@ paths resolve from the workflow session worktree or project repository. When omi
 use that base, falling back to the authority process cwd if there is no workflow directory.
 The tool root still resolves inventoried executables and file arguments.
 
-Manifest `process.inheritEnv` names are inherited directly from the host when present;
-internal and unsafe names are filtered. The baseline includes PATH, HOME, TMPDIR, LANG
-and LC_*. Host permissions and existing CLI credentials apply, like a Command step;
-working-directory selection and environment filtering do not provide an OS sandbox.
+Manifest `process.inheritEnv` selects additional names from the UI/MCP launch environment
+or shared startup references in `~/.valdr/environment.env`; explicit launch values win,
+including empty strings. Internal and unsafe names are filtered. The baseline includes
+PATH, HOME, TMPDIR, LANG and LC_*. The shared file uses whole-value `${NAME}` or `$(command)`
+references from shell startup or trusted local commands, not literal values. See
+[environment variables](https://valdr.ai/valdr/docs/workflows/user-tools/runtime/#environment-variables)
+for setup and restart requirements. Host permissions and existing CLI credentials apply,
+like a Command step; working-directory selection and environment filtering do not provide an OS sandbox.
 
 ## Writes and retries
 

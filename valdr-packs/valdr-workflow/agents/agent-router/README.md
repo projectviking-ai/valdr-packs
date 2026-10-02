@@ -88,7 +88,7 @@ This router chooses **who**; [`launcher-preset-router`](../launcher-preset-route
 
 The router is only as good as the metadata your agents carry. Tags are the strongest signal — an agent tagged with its technology and domain routes reliably; one with no tags falls through to its capabilities, then its name, then `unknown`.
 
-Unlike launcher presets, agents carry `tags`, `capabilities`, and `notes`, so there is considerably more to route on.
+Agents carry `tags`, `capabilities`, and `notes` to guide routing.
 
 ## Boundaries
 

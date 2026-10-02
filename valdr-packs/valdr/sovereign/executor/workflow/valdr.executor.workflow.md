@@ -148,6 +148,8 @@ After moving to `in_review`, check for an assigned reviewer and hand off to an e
    ```
    pm_session {
      action: "input",
+     delivery: "queue",
+     clientRequestId: "<pm_generate_ulid>",
      sessionUlid: "<existing-reviewer-session-ulid>",
      prompt: "Re-review valdr task {{taskKey}} using skill valdr-reviewer. Executor session: <own-session-ulid>. Fixes are ready."
    }

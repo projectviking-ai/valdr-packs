@@ -37,23 +37,15 @@ The `agentHandle` field on `launch_task` is **critical for token tracking**. Whe
 
 **Always pass the agent's registered handle** — not a display name, not a user handle. Use the `handle` field from the agent registry (`pm_agent { action: "get" }`).
 
-## Step 1: Resolve Launcher Preset
+## Step 1: Resolve Provider Preset
 
 `pm_session.launch_task` requires `launcherConfigKey`.
 
-Resolve in this order:
-1. User-provided `launcherConfigKey`
-2. Map provider -> preset key:
-   - `codex` -> `coder-codex`
-   - `claude` -> `coder-claude`
-   - `anthropic` -> `coder-anthropic`
-   - `gemini` -> `coder-gemini`
-   - `openai` -> `coder-openai`
-   - `ollama` -> `coder-ollama`
-3. Default fallback: `coder-codex`
+Use a user-provided `launcherConfigKey` when present. Otherwise query `pm_provider { action: "list_presets" }` and select a registered preset for an enabled provider that satisfies the task's repository, file, shell, and worktree requirements. Respect the user's requested provider. If no eligible preset can be resolved, stop and report the missing configuration; do not guess preset keys from provider names.
 
-Provider rule:
-- If `provider` is supplied, it must match the resolved preset provider or launch fails.
+Valdr 0.3.4 supports `claude`, `codex`, `opencode`, and `ollama`. Direct `gemini`, `openai`, and `anthropic` presets no longer launch. Use an `opencode` preset for those model providers, with models and authentication configured in OpenCode. Existing presets are not automatically converted.
+
+If `provider` is supplied, it must match the resolved preset's Valdr provider type. For OpenCode this is `opencode`, even when its model selector names OpenAI, Anthropic, or Gemini.
 
 ## Step 2: Determine Launch Mode
 
@@ -71,7 +63,7 @@ The system builds a full system prompt from the agent's registered capabilities 
 
 The system sends only a minimal system prompt and a short instruction as the user message. The agent's CLI skills (e.g. `valdr-executor`, `valdr-reviewer`) handle loading task context, capabilities, and execution workflow at runtime. This avoids duplicate context and produces better results for skill-aware agents.
 
-**Use when:** The agent **has CLI skills** that handle task context loading. This is the preferred mode for `valdr-*` skill-aware launchers.
+**Use when:** The agent **has CLI skills** that handle task context loading. This is the preferred mode for `valdr-*` skill-aware providers.
 
 **Trigger phrases:** "skill launch", "ad-hoc", "use skills", or any mention of a specific skill name
 
@@ -147,7 +139,7 @@ pm_session {
 If `run` is omitted, default is `true`.
 
 Worktree default:
-- Omit `worktree` to use launcher preset defaults (workspace worktree creation is enabled for `coder-*` presets).
+- Omit `worktree` to use provider preset defaults (workspace worktree creation is enabled for `coder-*` presets).
 - Use `worktree` overrides only when explicitly requested.
 
 ## Step 4: Verify Launch

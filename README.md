@@ -7,7 +7,7 @@ Valdr packs are portable, self-describing bundles of agents, prompts, and capabi
 
 ## Quick Start
 
-Download the Sovereign, Workflow, and Tools packs from the same release and use that release's pinned Valdr CLI:
+Download the Sovereign, Workflow, and Tools packs from the same release. Use Valdr 0.3.4 for the OpenCode and steering features below; the source build and validation CLI is pinned separately in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION).
 
 | Component | Release asset |
 | --- | --- |
@@ -16,13 +16,17 @@ Download the Sovereign, Workflow, and Tools packs from the same release and use 
 | Valdr Workflow pack | `valdr-workflow.valdr-pack.tar.gz` |
 | Valdr Tools pack | `valdr-tools.valdr-pack.tar.gz` |
 
-1. Read [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag, then download that CLI version from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases).
+1. Download Valdr 0.3.4 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). For source builds and CLI pack validation, use the version in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag.
 2. Download `valdr-sovereign.valdr-pack.tar.gz` from your chosen release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
 3. Download `valdr-workflow.valdr-pack.tar.gz` from that same release.
 4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow and Tools packs. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
-5. Configure launcher presets, register eligible bot agents, and attach a Git repository project before starting a workflow.
+5. Configure provider presets, register eligible bot agents, and attach a Git repository project before starting a workflow.
 
-The Workflow pack intentionally fails closed when it cannot identify an eligible executor, reviewer, or launcher preset. Use `pm_provider` with `action: list_presets` to find launcher configuration keys and `pm_agent` with `action: list` to inspect eligible bot handles. Router and sizing presets must honour strict JSON output; implementation, review, planning, and pull-request writer presets also need repository access where their input descriptions say so. Full setup and entrypoint details are in the [Workflow pack guide](valdr-packs/valdr-workflow/README.md).
+The Workflow pack intentionally fails closed when it cannot identify an eligible executor, reviewer, or provider preset. Use `pm_provider` with `action: list_presets` to find provider preset keys and `pm_agent` with `action: list` to inspect eligible bot handles. Router and sizing presets must honour strict JSON output; implementation, review, planning, and pull-request writer presets also need repository access where their input descriptions say so. Full setup and entrypoint details are in the [Workflow pack guide](valdr-packs/valdr-workflow/README.md).
+
+Valdr 0.3.4 supports Claude, Codex, OpenCode, and Ollama sessions. Direct Gemini, OpenAI API, and Anthropic API presets no longer launch; replace affected agent/workflow selections with registered OpenCode presets. Configure model providers and authentication in OpenCode; migration is not automatic. See the [OpenCode provider guide](https://valdr.ai/valdr/docs/valdr-provider-packs/overview/#opencode).
+
+Session input defaults to queued follow-ups. `delivery: "steer"` redirects an active supported Codex/Claude ad-hoc turn; workflow-owned input remains queued. External Gemini CLI skill installation remains supported.
 
 Pull-request workflows default `remoteName` to `origin`, preserve the actual checked-out base branch when no base is supplied, and propose draft pull requests by default. Supply another remote name explicitly when the project uses a different Git remote. Proposal publication always requires the named human operator's approval.
 
@@ -372,9 +376,9 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## Requirements
 
-- [Valdr](https://valdr.ai) with the Valdr PM MCP server enabled, using the CLI version pinned for your pack release
+- [Valdr](https://valdr.ai) 0.3.4 with the Valdr PM MCP server enabled; source builds and CLI pack validation use the version pinned for your pack release
 - Valdr Sovereign pack imported before the Workflow pack from the same release
-- A configured project repository, launcher presets, eligible bot agents, and a human operator handle for Workflow entrypoints
+- A configured project repository, provider presets, eligible bot agents, and a human operator handle for Workflow entrypoints
 - [Node.js](https://nodejs.org) and GNU Make only when building or syncing from a source checkout
 
 ## Contributing

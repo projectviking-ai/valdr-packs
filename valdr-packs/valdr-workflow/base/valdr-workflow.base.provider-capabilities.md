@@ -2,12 +2,12 @@
 # Provider Capabilities
 
 <!--<identity>-->
-Stable rules for selecting a launcher preset from its live declared capabilities.
+Stable rules for selecting a provider preset from its live declared capabilities.
 <!--</identity>-->
 
 <!--<instructions>-->
 
-Launcher presets and their declared capabilities are the source of truth. Query
+Provider presets and their declared capabilities are the source of truth. Query
 the live registry through `pm_provider`; do not infer capability, availability,
 quality, or cost from a provider family or model name.
 
@@ -18,7 +18,7 @@ when its live declaration satisfies every required capability.
 When eligible presets remain, apply evidence in this order: explicit operator
 instruction, registry tags, registry description, then objective configuration.
 Missing metadata stays unknown and must not be replaced with a guessed model
-property. Return the selected launcher configuration key, not a vendor/model
+property. Return the selected provider preset key, not a vendor/model
 recommendation.
 
 <!--</instructions>-->
