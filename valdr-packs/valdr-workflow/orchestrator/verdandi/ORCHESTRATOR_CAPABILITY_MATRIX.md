@@ -8,7 +8,8 @@
 | `valdr-workflow.verdandi.authoring` | workflow | yes | Writing or changing a definition |
 | `valdr-workflow.verdandi.operating` | workflow | yes | Starting, re-running, cancelling, inspecting |
 | `valdr-workflow.verdandi.debugging` | workflow | yes | A run is blocked, failed, or stuck |
-| `valdr-workflow.verdandi.user-tools` | workflow | yes | A step calls an imported local user tool |
+| `valdr-workflow.verdandi.user-tools` | workflow | yes | Discovering, inspecting, directly testing, or authoring a user-tool step |
+| `valdr.core.tools.pm-user-tool` | integration | yes | Gateway help, discovery, schemas, and standalone execution |
 | `valdr.core.tools.pm-workflow` | integration | yes | `pm_workflow` action contracts |
 | `valdr.core.tools.pm-task` | integration | yes | `pm_task` contract detail |
 | `valdr.core.tools.pm-session` | integration | yes | `pm_session` contract detail |

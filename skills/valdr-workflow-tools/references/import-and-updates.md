@@ -21,6 +21,8 @@ Use a compatible Valdr CLI on the import host as well; older clients cannot impo
 
 ## Import and execute
 
+On servers exposing `pm_user_tool`, agents can also call `help`, then `search` and `describe`, and invoke an authorized action without a workflow. Hot-load `valdr.core.tools.pm-user-tool` for the direct invocation contract. Gateway schemas omit `contentHash`; use the Builder/catalog for the complete workflow pin described below.
+
 Import `build/valdr-tools.valdr-pack.tar.gz` in **Settings → Valdr Packs**. Review preflight
 and commit the import. Manage installed tools under **Workflows → Tools**, the tab after
 **Runs**; **Import or export packs** links back to Settings. Import never installs dependencies,
@@ -45,8 +47,9 @@ or copy those exact fields from the catalog; do not make up a hash.
 ## Updates
 
 1. Read the maintained source and current diff. Preserve user changes.
-2. Change revision for changed source bytes or contract. Same ID/revision with different
-   content conflicts on import; do not try to overwrite the retained snapshot.
+2. Change revision for changed source bytes or contract. Normal installation rejects different
+   content under the same ID/revision. Explicitly approved pack overwrite can replace those bytes,
+   so a revision label alone is not an immutable pin. Prefer a new revision; never edit a retained snapshot.
 3. Validate, rebuild, review preflight and import the new revision. It is available in the
    Builder immediately. An identical reimport preserves the same identity.
 4. New steps from the library use the latest installed revision. Existing steps and runs
