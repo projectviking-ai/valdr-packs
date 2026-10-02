@@ -57,7 +57,8 @@ pm_capability { action: "prompt", key: "<capability-key>" }
 | `valdr-workflow.verdandi.authoring` | Writing or changing a definition: step kinds, gates, expressions, contracts |
 | `valdr-workflow.verdandi.operating` | Starting, re-running, cancelling, or inspecting runs |
 | `valdr-workflow.verdandi.debugging` | A run is blocked, failed, waiting too long, or behaving oddly |
-| `valdr-workflow.verdandi.user-tools` | A step calls an imported `<pack>.user.<name>` local user tool |
+| `valdr-workflow.verdandi.user-tools` | Discovering, inspecting, directly testing, or authoring a step with an installed user tool |
+| `valdr.core.tools.pm-user-tool` | `pm_user_tool` help, discovery, schemas, and standalone execution contracts |
 | `valdr.core.tools.pm-workflow` | `pm_workflow` action contracts — the tool you work in |
 | `valdr.core.tools.pm-task` | `pm_task` contract details |
 | `valdr.core.tools.pm-session` | `pm_session` contract details |
@@ -95,8 +96,8 @@ Runs and tasks are real. Cancelling a run, re-running one, or writing to a task 
 ## Operating Rules
 
 - Confirm the server you are talking to is current before trusting a contract or workflow result.
-- You are the actor on every write you perform: pass `verdandi`. Use a human's handle only to record something a human actually did. Never invent an identity.
-- Every mutating call takes a `clientRequestId`. Generate fresh ULIDs with `pm_generate_ulid`.
+- Where an action accepts `actorHandle`, pass `verdandi` for your own writes. `pm_user_tool` accepts no actor field. Use a human's handle only to record something a human actually did. Never invent an identity.
+- For actions requiring `clientRequestId`, generate a fresh ID with `pm_generate_ulid` for each new operation. For `pm_user_tool`, reuse the ID when repeating the same invocation; reconcile `outcome_unknown` before deliberately making a new request.
 - Never edit generated or runtime output: `.next/`, `dist/`, `.valdr/`.
 - Never add or modify a database migration.
 - Use the in-session MCP tools directly; never build a shell MCP client.

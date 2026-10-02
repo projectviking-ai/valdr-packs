@@ -36,6 +36,9 @@ capabilities:
     role: workflow
     hot-load: true
 
+  - key: valdr.core.tools.pm-user-tool
+    role: integration
+    hot-load: true
   - key: valdr.core.tools.pm-workflow
     role: integration
     hot-load: true

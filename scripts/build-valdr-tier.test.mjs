@@ -115,11 +115,13 @@ test("tier boundaries match the Raider, Vanguard, and Sovereign contract", () =>
   assert.equal(vanguardEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-audit.md`), true);
   assert.equal(vanguardEntries.includes(`${archiveRoot}auditor/tyr-v2/tyr-v2.agent.yaml`), true);
   assert.equal(vanguardEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-session.md`), false);
+  assert.equal(vanguardEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-user-tool.md`), false);
   assert.equal(hasPrefix(vanguardEntries, `${archiveRoot}orchestrator/skadi/`), false);
 
   const sovereignEntries = listArchiveEntries(archives.sovereign);
   assert.equal(sovereignEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-session.md`), true);
   assert.equal(sovereignEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-workflow.md`), true);
+  assert.equal(sovereignEntries.includes(`${archiveRoot}core/tools/valdr.core.tools.pm-user-tool.md`), true);
   assert.equal(hasPrefix(sovereignEntries, `${archiveRoot}orchestrator/skadi/`), true);
 });
 
