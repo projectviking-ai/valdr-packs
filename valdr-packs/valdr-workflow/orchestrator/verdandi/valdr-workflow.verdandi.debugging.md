@@ -36,6 +36,21 @@ pm_audit { action: "events", sessionUlid, includePayloadJson: false, textMaxLeng
 
 `pm_session events` takes only `sessionUlid`, `sinceSeq`, and `limit` — no type filter, no truncation, and `limit` windows *forward*, so there is no way to ask for the tail. Do not use it to hunt a receipt.
 
+## Provider inactivity versus workflow failure
+
+A public "no provider events" stall is a provider/runtime symptom until evidence
+identifies its cause. A schema rejection, command error, or failed condition
+provides a concrete workflow failure; silence alone does not. Inspect the last
+public tool completion, visible agent message, and provider failure event with
+their timestamps. Do not inspect private reasoning or infer the agent's activity
+from silence.
+
+When an isolated replay is authorized, preserve the exact prompt, input artifact
+bytes, model, and effective settings, then compare public events and outputs.
+A repeated stall establishes reproducibility, not its underlying cause. Test
+staged artifact drafting as a separate prompt change and report its observed
+result without claiming that improvement proves why the original turn stopped.
+
 ## Symptom Table
 
 | What you see | Most likely cause | Check |

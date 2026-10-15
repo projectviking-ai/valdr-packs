@@ -1,27 +1,37 @@
 <!--<capability id="valdr-workflow.verdandi.user-tools" pack="valdr-workflow" role="workflow">-->
-# Local User Tools
+# User Tools for Workflow Authoring
 
 <!--<identity>-->
-Discover, inspect, and directly test installed user tools, or use their frozen contracts in workflow steps. Keep direct gateway invocation separate from workflow authoring.
+Route user-tool work to the shared workflow execution reference and the direct MCP gateway contract. Preserve this entrypoint for existing Verdandi bindings.
 <!--</identity>-->
 
 <!--<instructions>-->
 
-## Direct Discovery and Testing
+Load `valdr-workflow.tools.user-tools` for installed action discovery, complete
+workflow pins, schemas, cwd, typed outputs, prerequisites, and retry semantics.
+Load `valdr.core.tools.pm-user-tool` for direct gateway call envelopes and policy.
+Use `valdr-workflow.tools.overview` when choosing between a user tool, built-in
+Command, a Valdr action, or an agent session.
 
-Hot-load `valdr.core.tools.pm-user-tool` for the gateway contract. On a server exposing it, use `pm_user_tool` with `help`, then `search` and `describe` to inspect visible installed actions and their schemas. Run an action directly only when the task authorizes its effects; no workflow or managed session is required. This can prove the action itself, but it does not prove a workflow's mappings or control flow.
+The boundaries to keep in mind:
 
-`run` requires nested object `input`, an existing absolute `cwd`, and a `clientRequestId`; it accepts no `actorHandle`. Authored `action` or `cwd` fields stay in `input`. Search, describe, and new runs default to latest installed; optional `revision` selects a label and each response identifies the selection. The gateway keeps hashes internal. Read direct results from `data.result`.
+- A workflow uses the actual installed tool ID and action with all six pin fields:
+  `id`, `action`, `revision`, `contentHash`, `inputSchema`, and `outputSchema`.
+  Gateway `describe` does not return the content hash; obtain the complete pin
+  from the installed Builder/catalog. Never invent one.
+- `pm_user_tool` is the direct-call gateway, not a workflow `tool.id`.
+  Its authorized `run` uses nested `input`, an absolute `cwd`, and a
+  `clientRequestId`; it accepts no `actorHandle`.
+- User-tool workflow execution cwd is beside `tool` and `inputs`. Action data
+  remains in `inputs`; success data maps from `$.normalized.data`.
+- Importing never runs the tool or installs its host dependencies. An uncertain
+  write needs reconciliation before another attempt. A direct success does not
+  prove a workflow's bindings or control flow.
 
-Use a fresh ID for a new operation, and the same ID for a matching repeat. A completed request replays; an unresolved claim returns `outcome_unknown` and never starts another process. Reconcile external effects before deliberately issuing a fresh ID. Tool/action/session policy can deny gateway access or `run`; capability bindings do not widen those permissions.
-
-## Pinned Workflow Steps (Valdr 0.3.3+)
-
-For reusable code or CLI actions, use the `valdr-workflow-tools` authoring skill and the canonical `valdr-tools` pack. These remain `kind: tool` steps: select the exact installed ID/action (`<pack>.user.<name>` or legacy `user.<name>`) and retain catalog `revision`, `contentHash`, `inputSchema`, and `outputSchema`. Obtain the complete pin from the Builder/catalog: gateway `describe` omits `contentHash`. Never invent it or author `pm_user_tool.run` as a workflow step. Map workflow success from `$.normalized.data`.
-
-Imported tools are immediately available in the Builder; import never runs them. Workflow execution uses host permissions like Command steps. Optional step-level `cwd` sits alongside `tool` and `inputs`, accepts expressions, and resolves absolute overrides or relative paths from the workflow session worktree/project repository; without context, the authority cwd is the fallback. Use step-level `cwd` for execution context; authored action fields remain in `inputs`. Do not add a project key to the process request.
-
-Existing runs retain their pins. A manual/unknown action with uncertain external effects needs reconciliation before retry; a workflow operation ID remains stable across ordinary retries while attempt IDs change. Never substitute an unrestricted command string for a missing supported action.
+For reusable program or CLI packaging, use the repository's
+`valdr-workflow-tools` authoring skill and canonical `valdr-tools` pack. Do not
+replace a missing supported action with an unrestricted command to evade its
+contract.
 
 <!--</instructions>-->
 <!--</capability>-->

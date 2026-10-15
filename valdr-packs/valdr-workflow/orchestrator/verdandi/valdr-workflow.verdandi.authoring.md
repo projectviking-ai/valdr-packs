@@ -28,7 +28,7 @@ workflow:
   steps: [ ... ]
 ```
 
-Field types are `string`, `number`, `integer`, `boolean`, `object`, `array`. **`array` is real and useful** — an exact reference preserves it, so an array produced by one step can be handed straight to a tool input that wants a list.
+Field types are `string`, `number`, `integer`, `boolean`, `object`, `array`. Exact references preserve arrays for downstream list inputs.
 
 Capability keys must be scoped to the pack that owns them. A key from another pack's namespace will not link, and the failure is quiet.
 
@@ -36,7 +36,7 @@ Capability keys must be scoped to the pack that owns them. A key from another pa
 
 | Kind | Use for | Owns |
 |---|---|---|
-| `tool` | One registered, replay-safe PM operation | `tool.id`, `tool.action`, `inputs` |
+| `tool` | One registered workflow tool action, safe to replay | `tool.id`, `tool.action`, `inputs` |
 | `session` | Provisioning an agent session, and driving one turn of it | `session` |
 | `review` | Provisioning a reviewer session | `review` |
 | `condition` | Routing on a closed check | `checks`, `onFailure` |
@@ -44,9 +44,9 @@ Capability keys must be scoped to the pack that owns them. A key from another pa
 | `subworkflow` | Calling another workflow by exact version | `workflow` |
 | `await_condition` | An outside callback, or a join on detached work | `waitsFor` |
 
-Every step **must** carry `key`, `name`, and `kind`. It may also carry `needs`, `when`, `inputs`, `outputs`, and `onFailure`. Omitting `name` is the most common way a hand-written step fails schema validation.
+Every step requires `key`, `name`, and `kind`; do not omit `name`. Optional fields include `needs`, `when`, `inputs`, `outputs`, and `onFailure`.
 
-**`await_condition` is no longer how you collect an agent's verdict.** A `session` step waits for its own turn now — see below. Reach for `await_condition` only in the two cases its row names, and never put `gates` on one: that is an error. An ordinary external Await requires **both** `expected` and `authorizedHandles`; an exact detached Await instead binds `sourceSessionUlid` and `sourceTurnClientRequestId`, derives its authority, and forbids authored `authorizedHandles`.
+**A `session` step collects its own agent verdict.** Use `await_condition` only for external callbacks or detached joins; `gates` are forbidden. External Await requires **both** `expected` and `authorizedHandles`. An exact detached Await binds `sourceSessionUlid` and `sourceTurnClientRequestId`, derives authority, and forbids authored `authorizedHandles`.
 
 There is no child-run join. The `child_run_terminal`, `child_run_completed`, and `child_runs_settled` wait kinds are non-normative and rejected under strict validation. A `subworkflow` step already blocks on its child, and `forEach` already joins its whole fan-out.
 
@@ -56,6 +56,12 @@ Waiting is a property of the step that causes the wait, not a step of its own. T
 
 1. A one-shot **launch** step starts and waits on its first turn. Put the prompt, completion wait, gate, and outputs on that one card.
 2. A **session input** step is only a later turn on a deliberately create-only reusable session; it carries that later turn's prompt, wait, receipt gate, and result outputs.
+
+For substantial artifacts, prompt the session to save useful stages: structure
+and requirements first, then task sections and validation fixes. Partial saves
+are progress, not acceptance. Reserve the final completion receipt and artifact
+hash for finished, validated content. Prefer substantive saved work to empty
+heartbeat messages.
 
 ```yaml
 - key: decide
@@ -88,7 +94,7 @@ Waiting is a property of the step that causes the wait, not a step of its own. T
 
 **The one-shot turn's work goes in `session.prompt` on the launch step.** Use `session.action: input` only for a later turn on a deliberately reusable session. Workflow-owned input is queued; `delivery: steer` is an ad-hoc `pm_session input` option and is not supported in workflow session steps.
 
-**`authorizedHandles` and `sourceSessionUlid` are not yours to author.** The runtime freezes both from the exact target session. Authoring either on a session input step is an error.
+**`waitsFor.authorizedHandles` and `waitsFor.sourceSessionUlid` are runtime-owned.** The runtime freezes both from the exact target session. Authoring either on a session input step is an error. Separately, a session-input receipt gate must bind `gates[].source.sessionUlid` to that same `session.sessionUlid`; only a start-and-wait launch can infer the gate source.
 
 **A gate requires `waitsFor.expected`.** Declaring a `session_output` gate without expected outcomes is an error.
 
@@ -97,6 +103,12 @@ Waiting is a property of the step that causes the wait, not a step of its own. T
 **`extract.path` must name the field the agent emits.** If its receipt calls the decision `verdict`, the path is `$.verdict`, not `$.outcome`. Read the agent's own output contract.
 
 **`includeParsed: true`** makes the whole parsed object available at `$.normalized.input.payload.gate.parsed.<field>` — that is how a reason, a handle, or a list reaches later steps.
+
+**A session-output gate does not accept a JSON Schema.** It parses the receipt and
+maps the extracted outcome; `includeParsed` does not require other receipt fields.
+Do not add `schema`, `jsonSchema`, `contract`, `receiptSchema`, `validate`, or
+`extract.schema`. Validate required fields with supported checks or an explicit
+tool step before their values authorize further work.
 
 **`onInvalid: block`** means malformed output stops the run instead of being guessed at. Keep it.
 
@@ -123,57 +135,20 @@ A review-backed wait does not read the agent's final message — it follows the 
 - Both may be declared without a gate; this is the one exception to the one-outcome rule.
 - The reviewer must publish a durable review. If it ends its turn without one, the run blocks with missing review evidence.
 
-Two bindings are mandatory and easy to miss, and a run that omits either blocks:
+Missing either binding below blocks the run:
 
 - **The `review` launch step must bind `reviewId`, `assignmentId`, and `sourceSessionUlid`** from a preceding `pm_review/start` and the implementation session. Without them the runtime cannot correlate publication evidence.
 - **The reviewer publishes using the trusted first-turn correlation the runtime supplies.** Do not author a replacement client request ID in the workflow prompt.
 
-Bind `reviewId`, `assignmentId`, and `sourceSessionUlid` from a preceding `pm_review/start` and the implementation session; the runtime appends the trusted publication correlation to the first-turn prompt.
-
 ## Human Gates
 
-The only way to stop for a person.
-
-```yaml
-- key: approve_spec
-  name: Approve specification
-  kind: human_gate
-  needs: [create_spec]
-  humanGate:
-    prompt: "Approve the reviewed specification for ${workflow.inputs.taskKey}?"
-    approvalText: Approve spec
-    rejectionText: Reject
-    references:                    # up to 8, kept in authored order
-      - kind: task
-        target: "${workflow.inputs.taskKey}"
-        label: Open task
-      - kind: session
-        target: "${steps.create_spec.outputs.writerSessionUlid}"
-        label: Open writer session
-    preview:                       # up to 5 documents, unique keys
-      documents:
-        - key: spec
-          label: Spec
-          path: "${steps.create_spec.outputs.path}"
-          sourceSessionUlid: "${steps.create_spec.outputs.writerSessionUlid}"
-    feedback:                      # where a rejection's notes land
-      sourceSessionUlid: "${steps.create_spec.outputs.writerSessionUlid}"
-      taskKey: "${workflow.inputs.taskKey}"
-      reviewId: "${steps.create_spec.outputs.reviewId}"
-  waitsFor:
-    kind: workflow_input
-    expected: [approved, rejected]
-    authorizedHandles: ["${runtime.actorHandle}"]
-  onFailure: { action: block }
-```
-
-A human gate presents approval content; it does not create comments, reviews, or sessions. Put any durable question or comment in an explicit replay-safe tool step before the gate.
-
-References may be `task`, `session`, `run`, or `url`. Bind their targets from the records that produced the approval material; URL targets must be absolute `http:` or `https:` URLs. Authored labels and order are presentation data and must be preserved.
-
-Feedback is valid only when at least one preview document exists. Each preview document needs the session that produced it, or the reviewer has nothing to open. Feedback reuses the existing source session, task, and review; it does not launch another agent or create a review.
-
-Unlike a session wait, a human gate **does** author its `authorizedHandles` — the approval must come from a real human or operator identity. Human approval outcomes are `approved` and `rejected`; do not substitute the durable review outcomes `review_approved` and `review_changes_requested`.
+Hot-load `valdr-workflow.steps.human-gate` before authoring human approval or
+clarification. It covers Questions schema, answer selectors and propagation,
+preview/feedback bindings, human authority, rejection, and bounded loop resumption.
+Approval expects `approved`/`rejected`; Questions requires `answered` and may
+offer `rejected`. Human gates author `authorizedHandles` and resolve through the
+authorized human UI, without callback tokens. Guard rejected outcomes before
+continuing; clarification does not approve later persistence.
 
 ## Expressions
 
@@ -185,6 +160,14 @@ Two forms, and the difference matters:
 | `"Sprint for ${steps.a.outputs.name}"` — interpolation | Produces text. |
 
 Use an exact reference whenever a tool input wants a non-string.
+
+**Object interpolation produces YAML text, not JSON.** Even a leading space in
+`" ${steps.a.outputs.receipt}"` selects interpolation; feeding that result to
+`JSON.parse` or `json.loads` fails. Preserve objects with exact references when
+the input accepts them. For string-only command environment values, bind scalar
+fields or a string already serialized as JSON by its producer. If a command
+must consume interpolated structured text, use an available safe YAML parser;
+do not invent an expression serialization function.
 
 **The path grammar supports dotted identifiers and numeric indices only** — `a.b.c` and `a[0]`. There are no wildcards, filters, counts, or arithmetic. You cannot compute "start plus seven days", and you cannot ask "did all of these succeed". If you need a derived value, take it as an input or have a step produce it.
 
@@ -218,6 +201,8 @@ A `condition` has no success branch. On a match it completes. On a non-match it 
 
 Check kinds are `value_equals`, `value_in`, `array_unique_nonempty_strings`, and `array_permutation_equals`. The same set is what a `when` guard on any step accepts — `when` takes a list of these checks, not a boolean expression.
 
+`value_in` requires `value` and `allowed: [...]`; `values` is ignored on condition steps. See Workflow Hazards for exact check fields.
+
 `onFailure` supports `block`, `fail`, and `loop_back`. `block` and `fail` both stop the run **and persist the step's declared outputs alongside the error**, which is precisely why the `reason` output above is worth writing.
 
 ### Loop corridors
@@ -232,24 +217,55 @@ onFailure:
 
 The source needs exactly one `value_equals` check with a closed `domain` listing every possible outcome. A match continues forward; a non-match repeats the corridor. Corridors may not overlap and may not contain automatic retry. A `subworkflow` step inside a corridor may not carry `forEach` or `detached`. Inside one, `${runtime.loop}` gives `targetStepKey`, `sourceStepKey`, `currentPass`, `maxPasses`, and `previous`.
 
+The source check's `equals` and every `domain` entry must be **literal values**;
+`equals` must belong to that domain. An expression remains invalid if hidden
+behind another step output. Express a data-dependent decision with supported
+operations and a finite outcome before comparing it to the literal loop target.
+
+`previous.outputs` contains the **loop-back source condition's** declared outputs
+from the preceding pass. It is not a step map: no `steps.<key>` belongs in the
+path. Pass 1 has no previous receipt. Guard each reader before resolving its
+inputs, checks, or outputs; for a three-pass corridor:
+
+```yaml
+when:
+  - kind: value_in
+    value: "${runtime.loop.currentPass}"
+    allowed: [2, 3]
+outputs:
+  priorReason: "${runtime.loop.previous.outputs.reason}"
+```
+
+Match the allowed later passes to the corridor's bound. Reading `previous`
+cannot itself be the first-pass guard.
+
+Before asking a human to enable another pass, guard that a pass remains;
+clarification must not reset the revision budget. Hot-load
+`valdr-workflow.steps.human-gate` for the bounded clarification example and
+answer propagation contract.
+
 ## Tool Steps
 
-Only actions exposed by the live tool catalog are executable. Use the catalog and strict validation as the authority; these are examples of shipping workflow actions:
+Hot-load `valdr-workflow.tools.overview` to choose a mechanism, then the matching
+`valdr-workflow.tools.command`, `valdr-workflow.tools.git`,
+`valdr-workflow.tools.github`, `valdr-workflow.tools.valdr`, or
+`valdr-workflow.tools.user-tools` capability for exact actions, required inputs,
+result selectors, and recovery.
+Prefer dedicated `session`, `review`, and `subworkflow` steps for their lifecycle.
 
-| Tool | Executable actions |
-|---|---|
-| `pm_task` | `get`, `get_prompt`, `change_status`, `update`, `comment_create` |
-| `pm_review` | `list`, `start`, and `launch_reviewer` as a `review` step |
-| `pm_session` | `launch_task`, `launch_prompt`, and `input` as `session` steps |
-| `pm_sprint` | `create`, `link_task`, `close_checked` |
-| `vmp` | `get_plan`, `commit_markdown_from_worktree` |
-| `pm_workflow` | Registered actions from the live aggregate Valdr catalog |
-| `git` | `status`, `diff`, `log`, `remote_status`, `branch_create`, `commit`, `merge`, `push` |
-| `github` | `create_pull_request` |
+Put action arguments in `inputs` and the action name in `tool.action`. Built-in
+`command/run` needs no imported tool or capability named `command`; capability
+search is not the executable catalog. Imported tools use their actual installed
+ID and full pin, never `pm_user_tool` as the workflow tool ID.
 
-The aggregate Valdr adapter exposes its registered actions as executable. Discover the live catalog and validate the definition; a catalog entry does not remove handler validation, human-gate authority, or replay constraints.
+Map results from the selected action's actual normalized envelope. Command's
+`$.normalized.stdout` is a **string**, even if it contains JSON or a number.
+User-tool structured data is under `$.normalized.data`; Valdr actions expose
+action-specific fields. Preserve types with exact references, not interpolation.
 
-The runtime fills only known-safe required fields: `taskKey`, `projectKey`, `contextRef`, `runUlid`, `actor`, `actorHandle`, `clientRequestId`. **Everything else you must author.**
+Strict validation checks the graph and action inputs; it cannot prove host
+prerequisites, handler authority, or business success. Guard on the actual result
+before permitting downstream effects and respect the user's execution scope.
 
 ## Subworkflows
 
@@ -265,15 +281,15 @@ The runtime fills only known-safe required fields: `taskKey`, `projectKey`, `con
 
 A subworkflow step needs no wait — it blocks on its child inherently. The version is exact.
 
-**Bind every input the child declares required.** Validation checks the binding against the child's own declared inputs and names the missing one: `Subworkflow 'x' must bind required input 'y'.` Under `forEach`, `itemName` satisfies one of them — each item arrives under that name — so a step that fans out binds one fewer input than the same child called directly. A root run freezes the content hash of every child it uses, so a run stays reproducible even if you edit the child later — and changing a child means bumping its version and every caller that pins it.
+**Bind every required child input.** Validation names missing bindings. Under `forEach`, `itemName` supplies one input; explicitly bind the others. A root run freezes each child's content hash for reproducibility. Changing a child requires bumping its version and updating every caller's pin.
 
-A child that blocks blocks its parent. That is usually what you want: it stops the caller from proceeding on an unfinished result.
+A blocked child blocks its parent; the caller cannot proceed on an unfinished result.
 
-**A subworkflow that returns a judgement must surface the session that produced it** — e.g. a `reviewerSessionUlid` output. Without it, every future diagnosis of a parent gate has to hunt through the child's own steps to find the receipt.
+**A child returning a judgement must expose its source session**, e.g. `reviewerSessionUlid`, so parent-gate diagnosis can find the receipt.
 
 ## Fan-Out
 
-A `subworkflow` step with `forEach` runs its child once per item instead of once. This is the only iteration primitive, and it is real — the shipped `valdr-workflow.task.review-all` uses it to run one review workflow per staffed assignment.
+A `subworkflow` with `forEach` runs once per item. The shipped `valdr-workflow.task.review-all` runs one review workflow per staffed assignment this way.
 
 ```yaml
 - key: review_assignments
@@ -290,7 +306,7 @@ A `subworkflow` step with `forEach` runs its child once per item instead of once
     children: "$.normalized.children"
 ```
 
-The constraints are narrow, and each one is an error rather than a warning:
+Each constraint below is a validation error:
 
 - **`forEach` belongs on a `subworkflow` step.** Nowhere else.
 - **`items` must be an exact reference** to a workflow input or a prior step's output. Interpolation is rejected. If it points at a workflow input, that input must be declared `type: array`.
@@ -312,8 +328,6 @@ These validate under permissive authoring and are rejected as non-normative unde
 
 `onFailure: { action: continue }` is different and stricter: it is a hard error in **every** mode, and `allowAdvancedKinds` does not admit it. The supported set is `block`, `fail`, `loop_back`, and nothing else.
 
-Two fields no longer sit on this list. `detached` is executable on a launch or Review step. `forEach` is executable on a subworkflow step — see Fan-Out above.
-
 ## Before You Call It Done
 
 - Strict validation passes with no errors, and you have read the warnings.
@@ -321,7 +335,7 @@ Two fields no longer sit on this list. `detached` is executable on a launch or R
 - Every one-shot turn's real instructions are in `session.prompt` on its launch; an input step carries only a later reusable-session turn.
 - Every agent handle, preset key, tool action, and child workflow version exists.
 - Every gate's `extract.path` matches the agent's real output contract.
-- Every gate that can stop the run carries a `reason` output that states **what the gate required**, not only what it got. `"${steps.check.outputs.summary}"` alone echoes the upstream verdict and leaves the expectation recoverable only from the definition — every future diagnosis then pays for a definition fetch. Write `"Readiness outcome was ${steps.check.outputs.outcome}; preparation requires task_ready."`
+- Every stopping gate carries a `reason` stating **what it required**, not merely echoing the upstream summary. Example: `"Readiness outcome was ${steps.check.outputs.outcome}; preparation requires task_ready."`
 - The workflow has been driven at least once through `test_definition`, or you have said that it has not.
 
 ## Local user tools (Valdr 0.3.3+)

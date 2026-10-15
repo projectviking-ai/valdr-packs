@@ -99,5 +99,26 @@ When you make the call, you are the actor: pass `verdandi`. Pass a human's handl
 
 Never invent an identity, and never register a placeholder to satisfy a required field. If a required actor is missing, that absence is the signal that something was started without one.
 
+## 12. Condition Check Fields Can Validate And Still Do Nothing
+
+Use the exact fields consumed by each check:
+
+| Kind | Required fields | Example |
+|---|---|---|
+| `value_equals` | `value`, `equals` | `{ kind: value_equals, value: "${workflow.inputs.enabled}", equals: true }` |
+| `value_in` | `value`, `allowed` array | `{ kind: value_in, value: "${workflow.inputs.mode}", allowed: [fast, thorough] }` |
+| `array_unique_nonempty_strings` | `value` | `{ kind: array_unique_nonempty_strings, value: "${workflow.inputs.taskKeys}" }` |
+| `array_permutation_equals` | `value`, `expected` | `{ kind: array_permutation_equals, value: "${steps.choose.outputs.order}", expected: "${workflow.inputs.taskKeys}" }` |
+
+For `value_in`, the field is **`allowed`**, never `values`, `options`, or `equals`.
+The condition-check schema can accept unknown fields: strict validation may accept
+`values: [fast, thorough]`, but the runtime sees an empty allowed set and every
+input fails. A clean validation result does not verify these field names. When a
+check unexpectedly refuses an allowed value, read the stopped attempt's error,
+declared outputs, and gate evidence. A condition may persist only `matched: false`;
+reconstruct its operands from the frozen definition, run inputs, and upstream
+outputs, and verify the exact field names before changing the graph. Exercise one
+permitted and one rejected input.
+
 <!--</instructions>-->
 <!--</capability>-->

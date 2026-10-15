@@ -26,6 +26,9 @@ capabilities:
   - key: valdr-workflow.verdandi.authoring
     role: workflow
     hot-load: true
+  - key: valdr-workflow.steps.human-gate
+    role: workflow
+    hot-load: true
   - key: valdr-workflow.verdandi.operating
     role: workflow
     hot-load: true
@@ -34,6 +37,26 @@ capabilities:
     hot-load: true
   - key: valdr-workflow.verdandi.user-tools
     role: workflow
+    hot-load: true
+
+  # Shared workflow execution references; load only the selected tool family.
+  - key: valdr-workflow.tools.overview
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.valdr
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.command
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.git
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.github
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.user-tools
+    role: integration
     hot-load: true
 
   - key: valdr.core.tools.pm-user-tool
@@ -64,5 +87,20 @@ capabilities:
     role: integration
     hot-load: true
   - key: valdr.core.tools.pm-capability
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-project
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-sprint
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.vmp
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-prompt
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-knowledge
     role: integration
     hot-load: true
