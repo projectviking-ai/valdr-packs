@@ -1,0 +1,14 @@
+schemaVersion: 1.0
+agent:
+  handle: planning-plan-reviewer
+  name: Planning Plan Reviewer
+  kind: bot
+  defaultRole: reviewer
+  tags: [valdr-workflow, planning-team, planning, plan]
+capabilities:
+  - key: valdr-workflow.planning-team.plan-reviewer.system
+    role: core
+  - key: valdr.planner.freya.schema
+    role: constraints
+  - key: valdr.planner.freya.tasks
+    role: constraints

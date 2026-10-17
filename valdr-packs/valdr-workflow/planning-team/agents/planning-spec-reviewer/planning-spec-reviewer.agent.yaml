@@ -1,0 +1,10 @@
+schemaVersion: 1.0
+agent:
+  handle: planning-spec-reviewer
+  name: Planning Spec Reviewer
+  kind: bot
+  defaultRole: reviewer
+  tags: [valdr-workflow, planning-team, planning, specification]
+capabilities:
+  - key: valdr-workflow.planning-team.spec-reviewer.system
+    role: core

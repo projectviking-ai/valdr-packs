@@ -1,7 +1,7 @@
 schemaVersion: 1.0
 pack: valdr-workflow
 name: Valdr Workflow Pack
-version: 0.13.0
+version: 0.13.2
 description: Workflow-owned agents and definitions for task readiness, delivery, planning, and idea-to-sprint orchestration.
 license: MIT
 homepage: https://valdr.ai
@@ -15,3 +15,5 @@ includes:
     description: Workflow orchestrator agents that author, run, and debug workflow definitions.
   - path: workflows
     description: Workflow definitions for task readiness and delivery review.
+  - path: planning-team
+    description: Independent specification and planning team with orchestrator-owned acceptance.

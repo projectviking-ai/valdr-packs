@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" role="img" aria-labelledby="flow-title flow-desc">
+<title id="flow-title">Planning team workflow</title>
+<desc id="flow-desc">A brief, a specification phase and a plan phase run in sequence, then a human approves saving the accepted plan to VMP. Inside each phase the creator drafts, the collaborator challenges, the creator incorporates, the reviewer reviews and the orchestrator decides. The orchestrator can accept, send a full or focused revision back to the creator, or ask a human. A collaborator can escalate straight to the orchestrator.</desc>
+<defs><marker id="a-ink" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1.5 L9,5 L1,8.5 Z" fill="#334155"/></marker><marker id="a-green" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1.5 L9,5 L1,8.5 Z" fill="#2f7d57"/></marker><marker id="a-amber" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1,1.5 L9,5 L1,8.5 Z" fill="#b26a00"/></marker></defs>
+<rect width="1000" height="640" fill="#ffffff"/>
+<text x="40" y="42" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#1f2933" text-anchor="start">Planning team: specification and plan</text>
+<text x="40" y="62" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#5f6f80" text-anchor="start">The orchestrator accepts each artifact. A human answers open questions and approves saving the plan.</text>
+<rect x="40" y="84" width="140" height="50" rx="8" fill="#ffffff" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="110.0" y="106.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Brief</text>
+<text x="110.0" y="122.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5f6f80" text-anchor="middle">scope, presets, evidence</text>
+<rect x="235" y="84" width="140" height="50" rx="8" fill="#f1f5f9" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="305.0" y="106.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Specification phase</text>
+<text x="305.0" y="122.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5f6f80" text-anchor="middle">produces spec.md</text>
+<rect x="430" y="84" width="140" height="50" rx="8" fill="#f1f5f9" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="500.0" y="106.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Plan phase</text>
+<text x="500.0" y="122.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5f6f80" text-anchor="middle">produces VMP plan.md</text>
+<rect x="625" y="84" width="140" height="50" rx="8" fill="#fff6e3" stroke="#e0b25a" stroke-width="1.25"/>
+<text x="695.0" y="106.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#7a4a00" text-anchor="middle">Human approval</text>
+<text x="695.0" y="122.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5f6f80" text-anchor="middle">approve saving the plan</text>
+<rect x="820" y="84" width="140" height="50" rx="8" fill="#eaf6ef" stroke="#86c29f" stroke-width="1.25"/>
+<text x="890.0" y="106.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f5f3f" text-anchor="middle">Plan saved</text>
+<text x="890.0" y="122.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5f6f80" text-anchor="middle">VMP plan + tasks</text>
+<path d="M182,109.0 H232" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="207.5" y="102.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5f6f80" text-anchor="middle">accepted</text>
+<path d="M377,109.0 H427" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="402.5" y="102.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5f6f80" text-anchor="middle">accepted</text>
+<path d="M572,109.0 H622" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="597.5" y="102.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5f6f80" text-anchor="middle">validated</text>
+<path d="M767,109.0 H817" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="792.5" y="102.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5f6f80" text-anchor="middle">approved</text>
+<path d="M305.0,134 V154 H500.0 V134" fill="none" stroke="#334155" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M402.5,154 V196" fill="none" stroke="#334155" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="414.5" y="180" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f6f80" text-anchor="start">each phase runs this pass, up to three times</text>
+<rect x="40" y="200" width="920" height="380" rx="10" fill="#f8fafc" stroke="#e3e8ee" stroke-width="1.25"/>
+<path d="M178,200 V580" stroke="#e3e8ee" stroke-width="1.25"/>
+<text x="56" y="236.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1f2933" text-anchor="start">Human</text>
+<text x="56" y="252.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5f6f80" text-anchor="start">answers questions</text>
+<path d="M40,276 H960" stroke="#e3e8ee" stroke-width="1.25"/>
+<text x="56" y="312.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1f2933" text-anchor="start">Orchestrator</text>
+<text x="56" y="328.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5f6f80" text-anchor="start">owns acceptance</text>
+<path d="M40,352 H960" stroke="#e3e8ee" stroke-width="1.25"/>
+<text x="56" y="388.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1f2933" text-anchor="start">Creator</text>
+<text x="56" y="404.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5f6f80" text-anchor="start">owns the artifact</text>
+<path d="M40,428 H960" stroke="#e3e8ee" stroke-width="1.25"/>
+<text x="56" y="464.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1f2933" text-anchor="start">Collaborator</text>
+<text x="56" y="480.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5f6f80" text-anchor="start">a different model</text>
+<path d="M40,504 H960" stroke="#e3e8ee" stroke-width="1.25"/>
+<text x="56" y="540.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1f2933" text-anchor="start">Reviewer</text>
+<text x="56" y="556.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5f6f80" text-anchor="start">advisory verdict</text>
+<path d="M328.0,390.0 H402 Q410,390.0 410,398.0 V443.0" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<path d="M468.0,466.0 H542 Q550,466.0 550,458.0 V413.0" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<path d="M608.0,390.0 H682 Q690,390.0 690,398.0 V519.0" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<path d="M748.0,542.0 H822 Q830,542.0 830,534.0 V337.0" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<circle cx="192" cy="390.0" r="4.5" fill="#334155"/>
+<path d="M197,390.0 H209.0" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<path d="M772.0,314.0 H308 Q300,314.0 300,322.0 V367.0" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="540" y="306.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1f2933" text-anchor="middle">revise</text>
+<path d="M888.0,314.0 H952" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ink)"/>
+<text x="920.0" y="306.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1f2933" text-anchor="middle">accepted</text>
+<path d="M240,410.0 V534.0 Q240,542.0 248,542.0 H629.0" fill="none" stroke="#2f7d57" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6 4" marker-end="url(#a-green)"/>
+<text x="440.0" y="533.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#2f7d57" text-anchor="middle">focused revision skips challenge and incorporate</text>
+<path d="M440,446.0 V356.0 Q440,348.0 448,348.0 H796 Q804,348.0 804,340.0 V337.0" fill="none" stroke="#b26a00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6 4" marker-end="url(#a-amber)"/>
+<text x="622.0" y="341.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#b26a00" text-anchor="middle">collaborator needs_human skips incorporate and review</text>
+<path d="M830,294.0 V261.0" fill="none" stroke="#b26a00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-amber)"/>
+<text x="840" y="280.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#b26a00" text-anchor="start">needs_human</text>
+<path d="M772.0,238.0 H248 Q240,238.0 240,246.0 V367.0" fill="none" stroke="#b26a00" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-amber)"/>
+<text x="520" y="230.0" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#b26a00" text-anchor="middle">answers return to the team, then the phase resumes</text>
+<rect x="212.0" y="370.0" width="116" height="40" rx="8" fill="#ffffff" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="270.0" y="394.5" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Draft / revise</text>
+<rect x="352.0" y="446.0" width="116" height="40" rx="8" fill="#ffffff" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="410.0" y="470.5" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Challenge</text>
+<rect x="492.0" y="370.0" width="116" height="40" rx="8" fill="#ffffff" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="550.0" y="394.5" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Incorporate</text>
+<rect x="632.0" y="522.0" width="116" height="40" rx="8" fill="#ffffff" stroke="#b8c4d0" stroke-width="1.25"/>
+<text x="690.0" y="546.5" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933" text-anchor="middle">Review</text>
+<rect x="772.0" y="294.0" width="116" height="40" rx="8" fill="#eaf1fd" stroke="#7ea6e0" stroke-width="1.25"/>
+<text x="830.0" y="318.5" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1d4f91" text-anchor="middle">Decide</text>
+<rect x="772.0" y="218.0" width="116" height="40" rx="8" fill="#fff6e3" stroke="#e0b25a" stroke-width="1.25"/>
+<text x="830.0" y="242.5" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#7a4a00" text-anchor="middle">Clarification gate</text>
+<text x="40" y="608" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5f6f80" text-anchor="start">Seven sessions share one worktree and are reused across passes. Providers and models come from the four preset inputs.</text>
+</svg>
