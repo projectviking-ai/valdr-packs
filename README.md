@@ -7,7 +7,7 @@ Valdr packs are portable, self-describing bundles of agents, prompts, and capabi
 
 ## Quick Start
 
-Download the Sovereign, Workflow, and Tools packs from the same release. Use Valdr 0.3.4 for the OpenCode and steering features below; the source build and validation CLI is pinned separately in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION).
+Download the Sovereign, Workflow, and Tools packs from the same release. Use Valdr 0.4.0 for this pack release, including the planning team's structured Questions gates; the source build and validation CLI is pinned separately in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION).
 
 | Component | Release asset |
 | --- | --- |
@@ -16,7 +16,7 @@ Download the Sovereign, Workflow, and Tools packs from the same release. Use Val
 | Valdr Workflow pack | `valdr-workflow.valdr-pack.tar.gz` |
 | Valdr Tools pack | `valdr-tools.valdr-pack.tar.gz` |
 
-1. Download Valdr 0.3.4 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). For source builds and CLI pack validation, use the version in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag.
+1. Download Valdr 0.4.0 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). For source builds and CLI pack validation, use the version in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag.
 2. Download `valdr-sovereign.valdr-pack.tar.gz` from your chosen release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
 3. Download `valdr-workflow.valdr-pack.tar.gz` from that same release.
 4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow and Tools packs. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
@@ -376,7 +376,7 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## Requirements
 
-- [Valdr](https://valdr.ai) 0.3.4 with the Valdr PM MCP server enabled; source builds and CLI pack validation use the version pinned for your pack release
+- [Valdr](https://valdr.ai) 0.4.0 with the Valdr PM MCP server enabled; source builds and CLI pack validation use the version pinned for your pack release
 - Valdr Sovereign pack imported before the Workflow pack from the same release
 - A configured project repository, provider presets, eligible bot agents, and a human operator handle for Workflow entrypoints
 - [Node.js](https://nodejs.org) and GNU Make only when building or syncing from a source checkout

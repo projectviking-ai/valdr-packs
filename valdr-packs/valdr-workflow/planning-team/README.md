@@ -22,6 +22,7 @@ The four preset keys select the provider, model and reasoning settings. Each cre
 
 Before starting:
 
+- Use Valdr 0.4.0 for this pack release, including its structured Questions gates.
 - The task's project must have a linked repository.
 - The orchestrator preset must enable worktree creation. All seven sessions share that worktree.
 - The launcher must provide repository access and Valdr MCP tools. For unattended Claude runs, configure the selected preset with `permissionMode: auto` so agents can write their assigned documents.
