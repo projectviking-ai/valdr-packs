@@ -1,0 +1,10 @@
+schemaVersion: 1.0
+agent:
+  handle: planning-spec-creator
+  name: Planning Spec Creator
+  kind: bot
+  defaultRole: planner
+  tags: [valdr-workflow, planning-team, planning, specification]
+capabilities:
+  - key: valdr-workflow.planning-team.spec-creator.system
+    role: core

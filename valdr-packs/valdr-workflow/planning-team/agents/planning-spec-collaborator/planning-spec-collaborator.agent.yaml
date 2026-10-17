@@ -1,0 +1,10 @@
+schemaVersion: 1.0
+agent:
+  handle: planning-spec-collaborator
+  name: Planning Spec Collaborator
+  kind: bot
+  defaultRole: planner
+  tags: [valdr-workflow, planning-team, planning, specification]
+capabilities:
+  - key: valdr-workflow.planning-team.spec-collaborator.system
+    role: core

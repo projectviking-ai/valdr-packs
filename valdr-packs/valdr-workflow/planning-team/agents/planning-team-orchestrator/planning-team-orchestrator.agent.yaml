@@ -1,0 +1,18 @@
+schemaVersion: 1.0
+agent:
+  handle: planning-team-orchestrator
+  name: Planning Team Orchestrator
+  kind: bot
+  defaultRole: orchestrator
+  tags: [valdr-workflow, planning-team, planning, orchestration]
+capabilities:
+  - key: valdr-workflow.planning-team.orchestrator.system
+    role: core
+  - key: valdr-workflow.base.human-gate-questions
+    role: constraints
+  - key: valdr.planner.freya.schema
+    role: constraints
+    hot-load: true
+  - key: valdr.planner.freya.tasks
+    role: constraints
+    hot-load: true

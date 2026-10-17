@@ -1,0 +1,1094 @@
+schemaVersion: 1.0
+workflow:
+  key: valdr-workflow.planning-team.spec-and-plan
+  name: Create Spec And Plan With A Planning Team
+  description: Coordinate specification and VMP planning teams in one worktree, with the planning orchestrator accepting each artifact, ruling on collaborator escalations, and asking a human structured questions only when evidence cannot settle them. A human approves the accepted plan before it is saved to VMP.
+  version: 0.7.2
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.planning-team.spec-and-plan
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    orchestratorPresetKey:
+      type: string
+      required: true
+      description: Registered orchestrator preset with Valdr MCP, repository access, and worktree creation enabled. The task project must have a linked repository.
+    creatorPresetKey:
+      type: string
+      required: true
+      description: Registered preset for both creators, including provider, model, and reasoning settings.
+    collaboratorPresetKey:
+      type: string
+      required: true
+      description: Registered preset for both collaborators. Select a different model from the creator.
+    reviewerPresetKey:
+      type: string
+      required: true
+      description: Registered preset for both independent artifact reviewers.
+  outputs:
+    taskKey: { type: string, required: true }
+    specPath: { type: string, required: true }
+    planPath: { type: string, required: true }
+    sourceSessionUlid: { type: string, required: true }
+    orchestratorSessionUlid: { type: string, required: true }
+    specDecisionPath: { type: string, required: true }
+    planDecisionPath: { type: string, required: true }
+    planKey: { type: string, required: true }
+  outputMappings:
+    taskKey: ${steps.load_task.outputs.taskKey}
+    specPath: projects/${steps.load_task.outputs.taskKey}/spec.md
+    planPath: projects/${steps.load_task.outputs.taskKey}/plan.md
+    sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+    orchestratorSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+    specDecisionPath: projects/${steps.load_task.outputs.taskKey}/spec-decision.md
+    planDecisionPath: projects/${steps.load_task.outputs.taskKey}/plan-decision.md
+    planKey: ${steps.commit_plan.outputs.planKey}
+  steps:
+    - key: load_task
+      name: Load planning task
+      kind: tool
+      tool: { id: pm_task, action: get }
+      inputs:
+        taskKey: ${workflow.inputs.taskKey}
+      outputs:
+        taskKey: $.normalized.task.key
+        projectId: $.normalized.task.projectId
+
+    - key: launch_orchestrator
+      name: Provision the planning orchestrator and shared worktree
+      kind: session
+      needs: [load_task]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-team-orchestrator
+        launcherConfigKey: ${workflow.inputs.orchestratorPresetKey}
+        actor: ${runtime.actor}
+        role: orchestrator
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+        specPath: projects/${steps.load_task.outputs.taskKey}/spec.md
+        specCollaborationPath: projects/${steps.load_task.outputs.taskKey}/spec-collaboration.md
+        specReviewPath: projects/${steps.load_task.outputs.taskKey}/spec-review.md
+        planPath: projects/${steps.load_task.outputs.taskKey}/plan.md
+        planCollaborationPath: projects/${steps.load_task.outputs.taskKey}/plan-collaboration.md
+        planReviewPath: projects/${steps.load_task.outputs.taskKey}/plan-review.md
+
+    - key: brief
+      name: Agree the planning brief
+      kind: session
+      needs: [launch_orchestrator]
+      session:
+        action: input
+        sessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        prompt: |-
+          Brief the team for task ${steps.load_task.outputs.taskKey}.
+          Read the task, current human comments, and repository instructions.
+          Write projects/${steps.load_task.outputs.taskKey}/brief.md with the goal, scope, constraints, acceptance criteria, and unresolved questions.
+          Record the task's verified projectId ${steps.load_task.outputs.projectId}; plan.md must use that projectId for later VMP ingestion.
+          The team is planning-spec-creator, planning-spec-collaborator, planning-spec-reviewer, planning-plan-creator, planning-plan-collaborator, and planning-plan-reviewer.
+          Verify the supplied presets against the live pm_provider/list_presets registry: orchestrator ${workflow.inputs.orchestratorPresetKey}, creators ${workflow.inputs.creatorPresetKey}, collaborators ${workflow.inputs.collaboratorPresetKey}, reviewers ${workflow.inputs.reviewerPresetKey}.
+          Provider, model, and reasoning settings belong to those presets. Creators and collaborators both use the planner role; check that they use different models. Repository and Valdr MCP access are supplied to every session by the workflow launcher and are not visible in preset records: record them as launcher-supplied and do not ask a human to confirm them. Record the actual settings and routing evidence in the brief without copying secrets. Do not choose replacement presets, invent keys, or infer capabilities from names.
+          Their turns are workflow-owned. You coordinate through the brief and decisions; do not launch or message sessions yourself.
+          Accept the brief when work can proceed within known requirements. Return needs_human only for a missing task requirement, an unresolved product decision, or a supplied preset key that is absent or gives creators and collaborators the same model, with the questions in your receipt and brief.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only the planning-decision/v1 JSON receipt with schemaVersion, outcome, and summary, plus questions when outcome is needs_human. On this brief turn, outcome is accepted or needs_human.
+      waitsFor: { kind: workflow_input, expected: [accepted, needs_human] }
+      gates:
+        - key: brief_decision
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_orchestrator.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { accepted: accepted, needs_human: needs_human }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        summary: $.normalized.input.payload.gate.parsed.summary
+        questions: $.normalized.input.payload.gate.parsed.questions
+
+    - key: clarify_brief
+      name: Resolve the orchestrator's brief questions
+      kind: human_gate
+      needs: [brief]
+      when:
+        - kind: value_equals
+          value: ${steps.brief.outputs.outcome}
+          equals: needs_human
+      humanGate:
+        prompt: "The planning orchestrator needs answers before the brief for ${steps.load_task.outputs.taskKey} can continue. ${steps.brief.outputs.summary}"
+        approvalText: Submit answers
+        rejectionText: Stop
+        questions: ${steps.brief.outputs.questions}
+        preview:
+          documents:
+            - key: brief
+              label: Planning brief
+              path: projects/${steps.load_task.outputs.taskKey}/brief.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        references:
+          - kind: task
+            target: ${steps.load_task.outputs.taskKey}
+            label: Open the task
+          - kind: session
+            target: ${steps.launch_orchestrator.outputs.sessionUlid}
+            label: Open the orchestrator session
+      waitsFor:
+        kind: workflow_input
+        expected: [answered, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      outputs:
+        outcome: $.normalized.input.outcome
+        questions: $.normalized.input.questions
+        answers: $.normalized.input.payload.answers
+      onFailure: { action: block }
+
+    - key: route_brief
+      name: Require an accepted brief
+      kind: condition
+      needs: [clarify_brief]
+      checks:
+        - kind: value_equals
+          value: ${steps.brief.outputs.outcome}
+          equals: accepted
+          domain: [accepted, needs_human]
+      outputs:
+        questions: ${steps.clarify_brief.outputs.questions}
+        answers: ${steps.clarify_brief.outputs.answers}
+        reason: "Planning requires an accepted brief; orchestrator returned ${steps.brief.outputs.outcome}: ${steps.brief.outputs.summary}"
+      onFailure: { action: loop_back, to: brief, max: 3, exhausted: block }
+
+    - key: launch_spec_writer
+      name: Provision the spec creator
+      kind: session
+      needs: [route_brief]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-spec-creator
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        launcherConfigKey: ${workflow.inputs.creatorPresetKey}
+        actor: ${runtime.actor}
+        role: planner
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+
+    - key: launch_spec_collaborator
+      name: Provision the spec collaborator
+      kind: session
+      needs: [launch_spec_writer]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-spec-collaborator
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        launcherConfigKey: ${workflow.inputs.collaboratorPresetKey}
+        actor: ${runtime.actor}
+        role: planner
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+
+    - key: launch_spec_reviewer
+      name: Provision the independent spec reviewer
+      kind: session
+      needs: [launch_spec_collaborator]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-spec-reviewer
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        launcherConfigKey: ${workflow.inputs.reviewerPresetKey}
+        actor: ${runtime.actor}
+        role: reviewer
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+
+    - key: write_spec
+      name: Create or revise the specification
+      kind: session
+      needs: [launch_spec_reviewer]
+      session:
+        action: input
+        sessionUlid: ${steps.launch_spec_writer.outputs.sessionUlid}
+        prompt: |-
+          Write or revise projects/${steps.load_task.outputs.taskKey}/spec.md for task ${steps.load_task.outputs.taskKey}.
+          Read brief.md in that directory, repository instructions, and the latest task and human comments.
+          On later passes, also read spec-decision.md, spec-collaboration.md, and spec-review.md when present. Apply the orchestrator's concrete revision instructions; address or explain each finding.
+          Previous revision scope: ${runtime.loop.previous.outputs.revisionScope}. Previous decision: ${runtime.loop.previous.outputs.summary}.
+          An empty previous scope is the first pass. On focused revision, apply only the named corrections in spec-decision.md and check their affected requirements and preserved invariants; retain settled scope and evidence. On full revision, reassess the complete specification. Optional suggestions alone do not require another cycle.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Do not invent missing requirements. Record unresolved questions for the orchestrator.
+          Return only your written JSON receipt with the exact spec.md path.
+      waitsFor: { kind: workflow_input, expected: [written] }
+      gates:
+        - key: spec_written
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_spec_writer.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { written: written }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+        priorRevisionScope: "prior:${runtime.loop.previous.outputs.revisionScope}"
+
+    - key: collaborate_spec
+      name: Develop and challenge the specification
+      kind: session
+      needs: [write_spec]
+      when:
+        - kind: value_in
+          value: ${steps.write_spec.outputs.priorRevisionScope}
+          allowed: ['prior:', 'prior:full', 'prior:none']
+      session:
+        action: input
+        sessionUlid: ${steps.launch_spec_collaborator.outputs.sessionUlid}
+        prompt: |-
+          Collaborate on projects/${steps.load_task.outputs.taskKey}/spec.md for task ${steps.load_task.outputs.taskKey}.
+          Read brief.md, the current draft, and relevant repository evidence to form your own analysis before comparing prior feedback or spec-decision.md.
+          Explore useful alternatives and challenge assumptions, omissions, constraints, and acceptance scenarios. Write concrete feedback to projects/${steps.load_task.outputs.taskKey}/spec-collaboration.md.
+          The creator owns spec.md. Questions and disagreements go in your report; the orchestrator decides how to resolve them.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only your planning-collaboration/v1 JSON receipt.
+      waitsFor: { kind: workflow_input, expected: [ready, needs_human] }
+      gates:
+        - key: spec_collaboration
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_spec_collaborator.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { ready: ready, needs_human: needs_human }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        summary: $.normalized.input.payload.gate.parsed.summary
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+
+    - key: capture_spec_collaboration
+      name: Capture the collaboration route for this pass
+      kind: condition
+      needs: [collaborate_spec]
+      checks:
+        - kind: value_in
+          value: ${steps.write_spec.outputs.priorRevisionScope}
+          allowed: ['prior:', 'prior:focused', 'prior:full', 'prior:none']
+      outputs:
+        collaborationRoute: "collab:${steps.collaborate_spec.outputs.outcome}"
+        reason: "Revision routing must be an empty first pass, focused, full, or none."
+      onFailure: { action: block }
+
+    - key: revise_spec
+      name: Incorporate the spec collaboration
+      kind: session
+      needs: [capture_spec_collaboration]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_spec_collaboration.outputs.collaborationRoute}
+          equals: 'collab:ready'
+      session:
+        action: input
+        sessionUlid: ${steps.launch_spec_writer.outputs.sessionUlid}
+        prompt: |-
+          Read projects/${steps.load_task.outputs.taskKey}/spec-collaboration.md and revise spec.md in the same directory.
+          Incorporate useful findings or explain why an alternative is unsuitable. Follow brief.md and any spec-decision.md.
+          Keep missing requirements explicit; do not invent answers to collaborator questions. Only the orchestrator accepts the document or requests human clarification.
+          Return only your written JSON receipt with the exact spec.md path.
+      waitsFor: { kind: workflow_input, expected: [written] }
+      gates:
+        - key: spec_revised
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_spec_writer.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { written: written }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+
+    - key: review_spec
+      name: Independently review the specification
+      kind: session
+      needs: [revise_spec]
+      when:
+        - kind: value_in
+          value: ${steps.capture_spec_collaboration.outputs.collaborationRoute}
+          allowed: ['collab:', 'collab:ready']
+      session:
+        action: input
+        sessionUlid: ${steps.launch_spec_reviewer.outputs.sessionUlid}
+        prompt: |-
+          Perform an advisory artifact review for task ${steps.load_task.outputs.taskKey}.
+          Read brief.md and spec.md in projects/${steps.load_task.outputs.taskKey}/, and inspect relevant repository evidence.
+          Write only projects/${steps.load_task.outputs.taskKey}/spec-review.md with concrete findings and your recommended verdict.
+          This workflow has no PM review assignment. Do not start or publish a PM review. The orchestrator owns final acceptance.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only your review JSON receipt with outcome approved or changes_requested and the exact spec-review.md path.
+          Revision routing: ${steps.write_spec.outputs.priorRevisionScope}. On prior:focused, independently verify the named corrections in spec-decision.md, their affected acceptance scenarios, and unchanged scope/coverage against the actual current artifact and relevant source. Retain the prior broader evidence at unchanged HEAD; the old collaboration is historical context, not fresh approval. Otherwise perform the complete independent review.
+      waitsFor: { kind: workflow_input, expected: [review_approved, review_changes_requested] }
+      gates:
+        - key: spec_review
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_spec_reviewer.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { approved: review_approved, changes_requested: review_changes_requested }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+
+    - key: validate_spec_receipts
+      name: Require specification receipts for the current task artifacts
+      kind: condition
+      needs: [review_spec]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_spec_collaboration.outputs.collaborationRoute}
+          equals: 'collab:ready'
+      checks:
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specPath}
+        - kind: value_equals
+          value: ${steps.collaborate_spec.outputs.schemaVersion}
+          equals: planning-collaboration/v1
+        - kind: value_equals
+          value: ${steps.collaborate_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specCollaborationPath}
+        - kind: value_equals
+          value: ${steps.revise_spec.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.revise_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specPath}
+        - kind: value_equals
+          value: ${steps.review_spec.outputs.schemaVersion}
+          equals: planning-review/v1
+        - kind: value_equals
+          value: ${steps.review_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specReviewPath}
+      outputs:
+        reason: "Specification acceptance requires planning-write/v1, planning-collaboration/v1, and planning-review/v1 receipts with the exact spec.md, spec-collaboration.md, and spec-review.md paths under projects/${steps.load_task.outputs.taskKey}/. Inspect the current write, collaborate, revise, and review receipts for a missing or incorrect schemaVersion or path."
+      onFailure: { action: block }
+
+    - key: validate_spec_focused_receipts
+      name: Require current focused specification receipts
+      kind: condition
+      needs: [validate_spec_receipts]
+      when:
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.priorRevisionScope}
+          equals: prior:focused
+      checks:
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specPath}
+        - kind: value_equals
+          value: ${steps.review_spec.outputs.schemaVersion}
+          equals: planning-review/v1
+        - kind: value_equals
+          value: ${steps.review_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specReviewPath}
+      outputs:
+        reason: "Focused specification acceptance requires current planning-write/v1 and planning-review/v1 receipts with the exact spec.md and spec-review.md paths under projects/${steps.load_task.outputs.taskKey}/. Collaboration and incorporation are skipped; their earlier report is historical evidence only."
+      onFailure: { action: block }
+
+    - key: validate_spec_escalation_receipts
+      name: Require current receipts for a collaborator escalation
+      kind: condition
+      needs: [validate_spec_focused_receipts]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_spec_collaboration.outputs.collaborationRoute}
+          equals: 'collab:needs_human'
+      checks:
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.write_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specPath}
+        - kind: value_equals
+          value: ${steps.collaborate_spec.outputs.schemaVersion}
+          equals: planning-collaboration/v1
+        - kind: value_equals
+          value: ${steps.collaborate_spec.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.specCollaborationPath}
+      outputs:
+        reason: "A collaborator escalation requires current planning-write/v1 and planning-collaboration/v1 receipts with the exact spec.md and spec-collaboration.md paths under projects/${steps.load_task.outputs.taskKey}/. Incorporation and review are skipped until the orchestrator rules on the question."
+      onFailure: { action: block }
+
+    - key: decide_spec
+      name: Orchestrator accepts or returns the specification
+      kind: session
+      needs: [validate_spec_escalation_receipts]
+      session:
+        action: input
+        sessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        prompt: |-
+          Decide specification acceptance for task ${steps.load_task.outputs.taskKey}.
+          Read the task, current human comments, brief.md, and actual spec.md in projects/${steps.load_task.outputs.taskKey}/. Assess the artifact and relevant evidence before comparing spec-collaboration.md, spec-review.md, and prior decisions.
+          Audit every original task constraint directly against the specification and observable scenarios, preserving its qualifiers. Record the compact source-to-artifact/check audit in spec-decision.md before acceptance. The brief and worker consensus cannot authorize exceptions. Check task-relevant observable results, error behavior, and side effects where preservation is required. Apply this check on focused passes too.
+          Collaborator outcome: ${steps.collaborate_spec.outputs.outcome}. Reviewer recommendation: ${steps.review_spec.outputs.outcome}. An empty value means that turn did not run on this pass. Assess the actual document against the brief and requirements; record why you accept or disagree with recommendations.
+          If the collaborator outcome is needs_human, incorporation and independent review were skipped so you can rule on its question first: ${steps.collaborate_spec.outputs.summary}
+          Read the question in spec-collaboration.md. Return needs_human with the exact question when evidence cannot settle it. When evidence settles it, record the answer and resulting instructions in spec-decision.md and return revise with revisionScope full. Never return accepted or focused on an escalated pass; the workflow blocks them.
+          Write projects/${steps.load_task.outputs.taskKey}/spec-decision.md with the decision and concrete next instructions or the operator questions.
+          Revision routing: ${steps.write_spec.outputs.priorRevisionScope}. On prior:focused, assess the named correction, affected acceptance scenarios, and preserved scope/coverage; reuse unchanged broader evidence. The retained collaboration is historical, not a new-pass receipt. Optional findings alone never require revision.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only planning-decision/v1 JSON with schemaVersion, outcome, revisionScope, and summary. Add questions when outcome is needs_human. outcome is accepted, revise, or needs_human. revisionScope is none for accepted/needs_human; for revise use focused only for named local corrections preserving scope, architecture, dependencies, and accepted behavior, otherwise full. You are the final acceptance authority.
+      waitsFor: { kind: workflow_input, expected: [accepted, revise, needs_human] }
+      gates:
+        - key: spec_decision
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_orchestrator.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { accepted: accepted, revise: revise, needs_human: needs_human }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        summary: $.normalized.input.payload.gate.parsed.summary
+        questions: $.normalized.input.payload.gate.parsed.questions
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+        revisionScope: $.normalized.input.payload.gate.parsed.revisionScope
+
+    - key: capture_spec_decision
+      name: Require the specification decision receipt contract
+      kind: condition
+      needs: [decide_spec]
+      checks:
+        - kind: value_equals
+          value: ${steps.decide_spec.outputs.schemaVersion}
+          equals: planning-decision/v1
+        - kind: value_in
+          value: ${steps.decide_spec.outputs.revisionScope}
+          allowed: [focused, full, none]
+      outputs:
+        decisionRoute: "${steps.decide_spec.outputs.outcome}:${steps.decide_spec.outputs.revisionScope}"
+        reason: "The specification decision must use planning-decision/v1 and include revisionScope focused, full, or none."
+      onFailure: { action: block }
+
+    - key: validate_spec_decision
+      name: Require a valid specification outcome and revision scope
+      kind: condition
+      needs: [capture_spec_decision]
+      checks:
+        - kind: value_in
+          value: ${steps.capture_spec_decision.outputs.decisionRoute}
+          allowed: ['accepted:none', 'revise:focused', 'revise:full', 'needs_human:none']
+      outputs:
+        reason: "Specification decisions require none for accepted/needs_human and focused or full for revise; missing or contradictory routing blocks the workflow."
+      onFailure: { action: block }
+
+    - key: validate_spec_escalation_decision
+      name: Require a ruling on the collaborator's escalation
+      kind: condition
+      needs: [validate_spec_decision]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_spec_collaboration.outputs.collaborationRoute}
+          equals: 'collab:needs_human'
+      checks:
+        - kind: value_in
+          value: ${steps.capture_spec_decision.outputs.decisionRoute}
+          allowed: ['revise:full', 'needs_human:none']
+      outputs:
+        reason: "The collaborator escalated, so this pass has no incorporation or independent review. The orchestrator must return needs_human with revisionScope none or revise with revisionScope full; it returned ${steps.capture_spec_decision.outputs.decisionRoute}."
+      onFailure: { action: block }
+
+    - key: clarify_spec
+      name: Resolve the orchestrator's specification questions
+      kind: human_gate
+      needs: [validate_spec_escalation_decision]
+      when:
+        - kind: value_equals
+          value: ${steps.decide_spec.outputs.outcome}
+          equals: needs_human
+      humanGate:
+        prompt: "The planning orchestrator needs answers before the specification for ${steps.load_task.outputs.taskKey} can continue. ${steps.decide_spec.outputs.summary}"
+        approvalText: Submit answers
+        rejectionText: Stop
+        questions: ${steps.decide_spec.outputs.questions}
+        preview:
+          documents:
+            - key: decision
+              label: Specification decision
+              path: projects/${steps.load_task.outputs.taskKey}/spec-decision.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+            - key: spec
+              label: Specification
+              path: projects/${steps.load_task.outputs.taskKey}/spec.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        references:
+          - kind: task
+            target: ${steps.load_task.outputs.taskKey}
+            label: Open the task
+          - kind: session
+            target: ${steps.launch_orchestrator.outputs.sessionUlid}
+            label: Open the orchestrator session
+      waitsFor:
+        kind: workflow_input
+        expected: [answered, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      outputs:
+        outcome: $.normalized.input.outcome
+        questions: $.normalized.input.questions
+        answers: $.normalized.input.payload.answers
+      onFailure: { action: block }
+
+    - key: route_spec
+      name: Require orchestrator acceptance before planning
+      kind: condition
+      needs: [clarify_spec]
+      checks:
+        - kind: value_equals
+          value: ${steps.decide_spec.outputs.outcome}
+          equals: accepted
+          domain: [accepted, revise, needs_human]
+      outputs:
+        questions: ${steps.clarify_spec.outputs.questions}
+        answers: ${steps.clarify_spec.outputs.answers}
+        reason: "Planning requires an accepted specification; orchestrator returned ${steps.decide_spec.outputs.outcome}: ${steps.decide_spec.outputs.summary}"
+        revisionScope: ${steps.decide_spec.outputs.revisionScope}
+        summary: ${steps.decide_spec.outputs.summary}
+      onFailure: { action: loop_back, to: write_spec, max: 3, exhausted: block }
+
+    - key: launch_plan_writer
+      name: Provision the planner
+      kind: session
+      needs: [route_spec]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-plan-creator
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        launcherConfigKey: ${workflow.inputs.creatorPresetKey}
+        actor: ${runtime.actor}
+        role: planner
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+
+    - key: launch_plan_collaborator
+      name: Provision the planner collaborator
+      kind: session
+      needs: [launch_plan_writer]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-plan-collaborator
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        launcherConfigKey: ${workflow.inputs.collaboratorPresetKey}
+        actor: ${runtime.actor}
+        role: planner
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+
+    - key: launch_plan_reviewer
+      name: Provision the independent plan reviewer
+      kind: session
+      needs: [launch_plan_collaborator]
+      session:
+        action: launch_task
+        taskKey: ${steps.load_task.outputs.taskKey}
+        agentHandle: planning-plan-reviewer
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        launcherConfigKey: ${workflow.inputs.reviewerPresetKey}
+        actor: ${runtime.actor}
+        role: reviewer
+        run: false
+        config: { keepAliveMs: 0, sessionIdleCloseMs: 0 }
+      outputs:
+        sessionUlid: $.normalized.session.sessionUlid
+
+    - key: write_plan
+      name: Create or revise the implementation plan
+      kind: session
+      needs: [launch_plan_reviewer]
+      session:
+        action: input
+        sessionUlid: ${steps.launch_plan_writer.outputs.sessionUlid}
+        prompt: |-
+          Write or revise projects/${steps.load_task.outputs.taskKey}/plan.md for task ${steps.load_task.outputs.taskKey}.
+          Produce VMP Markdown using your bound valdr.planner.freya.schema and valdr.planner.freya.tasks constraints. Use schemaVersion: 1.0 and projectId: ${steps.load_task.outputs.projectId} as the only project identifier in frontmatter.
+          Preserve the accepted specification through explicit stable mappings to REQ-* and TASK-* IDs. Put concrete file targets, prerequisites, behavior, and runnable validation in each task's Summary and Acceptance so they survive ingestion and remain usable without the full plan.
+          Read brief.md, the orchestrator-accepted spec.md and spec-decision.md, repository instructions, and current task and human comments.
+          On later passes, also read plan-decision.md, plan-collaboration.md, and plan-review.md when present. Apply the orchestrator's concrete revision instructions; address or explain each finding.
+          Previous revision scope: ${runtime.loop.previous.outputs.revisionScope}. Previous decision: ${runtime.loop.previous.outputs.summary}.
+          An empty previous scope is the first pass. On focused revision, apply only the named corrections in plan-decision.md and check their affected requirements and preserved invariants; retain settled scope and evidence. On full revision, reassess the complete plan. Optional suggestions alone do not require another cycle.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Before you return, validate the plan with the VMP parser: call native vmp action validate_markdown with the complete current contents of plan.md as markdown. It saves nothing. Fix every error it reports and validate again until it reports valid.
+          Do not edit the accepted specification, implement code, or call any other VMP action. If planning reveals a specification defect, record it for the orchestrator rather than silently changing scope.
+          Return only your planning-write/v1 JSON receipt with the exact plan.md path.
+      waitsFor: { kind: workflow_input, expected: [written] }
+      gates:
+        - key: plan_written
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_plan_writer.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { written: written }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+        priorRevisionScope: "prior:${runtime.loop.previous.outputs.revisionScope}"
+
+    - key: collaborate_plan
+      name: Develop and challenge the implementation plan
+      kind: session
+      needs: [write_plan]
+      when:
+        - kind: value_in
+          value: ${steps.write_plan.outputs.priorRevisionScope}
+          allowed: ['prior:', 'prior:full', 'prior:none']
+      session:
+        action: input
+        sessionUlid: ${steps.launch_plan_collaborator.outputs.sessionUlid}
+        prompt: |-
+          Collaborate on projects/${steps.load_task.outputs.taskKey}/plan.md for task ${steps.load_task.outputs.taskKey}.
+          Read brief.md, accepted spec.md and spec-decision.md, the current plan, and repository evidence. Form your own analysis before comparing prior planning feedback or plan-decision.md.
+          Challenge task boundaries, sequencing, dependencies, implementation choices, and validation. Check the bound Freya schema/task constraints, projectId ${steps.load_task.outputs.projectId}, and preservation of accepted spec IDs/scenarios and execution detail in parsed requirement/task fields. Write concrete feedback to projects/${steps.load_task.outputs.taskKey}/plan-collaboration.md.
+          The planner owns plan.md. Do not change spec.md, implement, or commit a VMP plan. Record missing requirements or specification defects for the orchestrator.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only your planning-collaboration/v1 JSON receipt.
+      waitsFor: { kind: workflow_input, expected: [ready, needs_human] }
+      gates:
+        - key: plan_collaboration
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_plan_collaborator.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { ready: ready, needs_human: needs_human }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        summary: $.normalized.input.payload.gate.parsed.summary
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+
+    - key: capture_plan_collaboration
+      name: Capture the collaboration route for this pass
+      kind: condition
+      needs: [collaborate_plan]
+      checks:
+        - kind: value_in
+          value: ${steps.write_plan.outputs.priorRevisionScope}
+          allowed: ['prior:', 'prior:focused', 'prior:full', 'prior:none']
+      outputs:
+        collaborationRoute: "collab:${steps.collaborate_plan.outputs.outcome}"
+        reason: "Revision routing must be an empty first pass, focused, full, or none."
+      onFailure: { action: block }
+
+    - key: revise_plan
+      name: Incorporate the planning collaboration
+      kind: session
+      needs: [capture_plan_collaboration]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_plan_collaboration.outputs.collaborationRoute}
+          equals: 'collab:ready'
+      session:
+        action: input
+        sessionUlid: ${steps.launch_plan_writer.outputs.sessionUlid}
+        prompt: |-
+          Read projects/${steps.load_task.outputs.taskKey}/plan-collaboration.md and revise plan.md in the same directory.
+          Incorporate useful findings or explain rejected alternatives. Follow the accepted spec.md, spec-decision.md, and any plan-decision.md.
+          Preserve the bound Freya VMP format, projectId ${steps.load_task.outputs.projectId}, stable REQ-/TASK- mappings, and standalone task context in Summary/Acceptance.
+          Before you return, call native vmp action validate_markdown with the complete current contents of plan.md as markdown, fix every error it reports, and validate again until it reports valid.
+          Keep unresolved questions explicit; do not invent requirements, edit spec.md, implement code, or call any other VMP action.
+          Return only your written JSON receipt with the exact plan.md path.
+      waitsFor: { kind: workflow_input, expected: [written] }
+      gates:
+        - key: plan_revised
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_plan_writer.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { written: written }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+
+    - key: review_plan
+      name: Independently review the implementation plan
+      kind: session
+      needs: [revise_plan]
+      when:
+        - kind: value_in
+          value: ${steps.capture_plan_collaboration.outputs.collaborationRoute}
+          allowed: ['collab:', 'collab:ready']
+      session:
+        action: input
+        sessionUlid: ${steps.launch_plan_reviewer.outputs.sessionUlid}
+        prompt: |-
+          Perform an advisory artifact review for task ${steps.load_task.outputs.taskKey}.
+          Read brief.md, accepted spec.md and spec-decision.md, and plan.md in projects/${steps.load_task.outputs.taskKey}/. Check specification coverage, concrete tasks and file targets, sequencing, dependencies, acceptance criteria, and runnable validation against repository evidence.
+          Apply the bound Freya schema/task constraints. Check projectId ${steps.load_task.outputs.projectId}, required VMP sections and unique linked IDs, complete inline Description/Scenario fields, and task context that survives ingestion. Missing or lost execution detail is material, not cosmetic.
+          Write only projects/${steps.load_task.outputs.taskKey}/plan-review.md with concrete findings and your recommended verdict.
+          The workflow validates plan.md with the VMP parser after your review and gives the result to the orchestrator, so do not call VMP yourself.
+          This workflow has no PM review assignment. Do not start or publish a PM review or implement code. The orchestrator owns final acceptance.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only your review JSON receipt with outcome approved or changes_requested and the exact plan-review.md path.
+          Revision routing: ${steps.write_plan.outputs.priorRevisionScope}. On prior:focused, independently verify the named corrections in plan-decision.md, their affected requirement/scenario coverage, and unchanged sequencing and scope against the actual current artifact and relevant source. Retain the prior broader evidence at unchanged HEAD; the old collaboration is historical context, not fresh approval. Otherwise perform the complete independent review.
+      waitsFor: { kind: workflow_input, expected: [review_approved, review_changes_requested] }
+      gates:
+        - key: plan_review
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_plan_reviewer.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { approved: review_approved, changes_requested: review_changes_requested }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        path: $.normalized.input.payload.gate.parsed.path
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+
+    - key: validate_plan_receipts
+      name: Require planning receipts for the current task artifacts
+      kind: condition
+      needs: [review_plan]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_plan_collaboration.outputs.collaborationRoute}
+          equals: 'collab:ready'
+      checks:
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planPath}
+        - kind: value_equals
+          value: ${steps.collaborate_plan.outputs.schemaVersion}
+          equals: planning-collaboration/v1
+        - kind: value_equals
+          value: ${steps.collaborate_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planCollaborationPath}
+        - kind: value_equals
+          value: ${steps.revise_plan.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.revise_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planPath}
+        - kind: value_equals
+          value: ${steps.review_plan.outputs.schemaVersion}
+          equals: planning-review/v1
+        - kind: value_equals
+          value: ${steps.review_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planReviewPath}
+      outputs:
+        reason: "Plan acceptance requires planning-write/v1, planning-collaboration/v1, and planning-review/v1 receipts with the exact plan.md, plan-collaboration.md, and plan-review.md paths under projects/${steps.load_task.outputs.taskKey}/. Inspect the current write, collaborate, revise, and review receipts for a missing or incorrect schemaVersion or path."
+      onFailure: { action: block }
+
+    - key: validate_plan_focused_receipts
+      name: Require current focused planning receipts
+      kind: condition
+      needs: [validate_plan_receipts]
+      when:
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.priorRevisionScope}
+          equals: prior:focused
+      checks:
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planPath}
+        - kind: value_equals
+          value: ${steps.review_plan.outputs.schemaVersion}
+          equals: planning-review/v1
+        - kind: value_equals
+          value: ${steps.review_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planReviewPath}
+      outputs:
+        reason: "Focused plan acceptance requires current planning-write/v1 and planning-review/v1 receipts with the exact plan.md and plan-review.md paths under projects/${steps.load_task.outputs.taskKey}/. Collaboration and incorporation are skipped; their earlier report is historical evidence only."
+      onFailure: { action: block }
+
+    - key: validate_plan_escalation_receipts
+      name: Require current receipts for a collaborator escalation
+      kind: condition
+      needs: [validate_plan_focused_receipts]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_plan_collaboration.outputs.collaborationRoute}
+          equals: 'collab:needs_human'
+      checks:
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.schemaVersion}
+          equals: planning-write/v1
+        - kind: value_equals
+          value: ${steps.write_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planPath}
+        - kind: value_equals
+          value: ${steps.collaborate_plan.outputs.schemaVersion}
+          equals: planning-collaboration/v1
+        - kind: value_equals
+          value: ${steps.collaborate_plan.outputs.path}
+          equals: ${steps.launch_orchestrator.outputs.planCollaborationPath}
+      outputs:
+        reason: "A collaborator escalation requires current planning-write/v1 and planning-collaboration/v1 receipts with the exact plan.md and plan-collaboration.md paths under projects/${steps.load_task.outputs.taskKey}/. Incorporation and review are skipped until the orchestrator rules on the question."
+      onFailure: { action: block }
+
+    # Mechanical parser check on the exact file, on every plan pass. The result goes to the orchestrator's decision.
+    - key: read_plan
+      name: Read the current plan from the shared worktree
+      kind: tool
+      needs: [validate_plan_escalation_receipts]
+      tool: { id: command, action: run }
+      inputs:
+        command: cat plan.md
+        cwd: projects/${steps.load_task.outputs.taskKey}
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        timeoutSeconds: 30
+      outputs:
+        markdown: $.normalized.stdout
+
+    - key: validate_plan_markdown
+      name: Validate the current plan with the VMP parser
+      kind: tool
+      needs: [read_plan]
+      tool: { id: vmp, action: validate_markdown }
+      inputs:
+        markdown: ${steps.read_plan.outputs.markdown}
+      outputs:
+        valid: $.normalized.valid
+        errors: $.normalized.errors
+
+    - key: decide_plan
+      name: Orchestrator accepts or returns the implementation plan
+      kind: session
+      needs: [validate_plan_markdown]
+      session:
+        action: input
+        sessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        prompt: |-
+          Decide plan acceptance for task ${steps.load_task.outputs.taskKey}.
+          Read the task, current human comments, brief.md, accepted spec.md and spec-decision.md, and actual plan.md in projects/${steps.load_task.outputs.taskKey}/. Assess the artifact and relevant evidence before comparing plan-collaboration.md, plan-review.md, and prior plan decisions.
+          Independently audit every original task constraint against retained task Summary/Acceptance and concrete checks; record the compact audit in plan-decision.md before acceptance, including on focused passes. An accepted spec is not authority to narrow the task. Check task-relevant observable results, error behavior, and side effects where preservation is required; a spec conflict must reopen through the existing needs_human route rather than be accepted.
+          Collaborator outcome: ${steps.collaborate_plan.outputs.outcome}. Reviewer recommendation: ${steps.review_plan.outputs.outcome}. An empty value means that turn did not run on this pass. Assess the actual plan for specification coverage, feasible sequencing, concrete tasks, and validation; record why you accept or disagree with recommendations.
+          If the collaborator outcome is needs_human, incorporation and independent review were skipped so you can rule on its question first: ${steps.collaborate_plan.outputs.summary}
+          Read the question in plan-collaboration.md. Return needs_human with the exact question when evidence cannot settle it. When evidence settles it, record the answer and resulting instructions in plan-decision.md and return revise with revisionScope full. Never return accepted or focused on an escalated pass; the workflow blocks them.
+          Load the shared Freya schema/task constraints once at this plan checkpoint if not already available. Require VMP Markdown with projectId ${steps.load_task.outputs.projectId}, stable spec-to-REQ-/TASK- mappings, and standalone execution detail preserved in ingested fields. This is artifact acceptance; do not publish the plan or call a mutating VMP action.
+          The workflow ran the VMP parser on the current plan.md. Valid: ${steps.validate_plan_markdown.outputs.valid}. Errors: ${steps.validate_plan_markdown.outputs.errors}
+          When valid is false you cannot accept: return revise and give the parser's errors as named corrections in plan-decision.md, focused when they are local. The workflow blocks an accepted decision on a plan the parser rejects.
+          Write projects/${steps.load_task.outputs.taskKey}/plan-decision.md with the decision and concrete next instructions or the operator questions.
+          Revision routing: ${steps.write_plan.outputs.priorRevisionScope}. On prior:focused, assess the named correction, affected coverage, and preserved scope/sequencing; reuse unchanged broader evidence. The retained collaboration is historical, not a new-pass receipt. Optional findings alone never require revision.
+          Operator answers from the previous pass are confirmed requirements; both values are empty when nothing was asked. Questions: ${runtime.loop.previous.outputs.questions} Answers: ${runtime.loop.previous.outputs.answers}
+          Return only planning-decision/v1 JSON with schemaVersion, outcome, revisionScope, and summary. Add questions when outcome is needs_human. outcome is accepted, revise, or needs_human. revisionScope is none for accepted/needs_human; for revise use focused only for named local corrections preserving scope, architecture, dependencies, and accepted behavior, otherwise full. You are the final acceptance authority.
+      waitsFor: { kind: workflow_input, expected: [accepted, revise, needs_human] }
+      gates:
+        - key: plan_decision
+          kind: session_output
+          source: { sessionUlid: "${steps.launch_orchestrator.outputs.sessionUlid}", event: final_agent_message }
+          extract: { format: json, path: $.outcome }
+          outcomes: { accepted: accepted, revise: revise, needs_human: needs_human }
+          onInvalid: { action: block }
+          payload: { includeParsed: true, includeSession: false }
+      outputs:
+        outcome: $.normalized.input.outcome
+        summary: $.normalized.input.payload.gate.parsed.summary
+        questions: $.normalized.input.payload.gate.parsed.questions
+        schemaVersion: $.normalized.input.payload.gate.parsed.schemaVersion
+        revisionScope: $.normalized.input.payload.gate.parsed.revisionScope
+
+    - key: capture_plan_decision
+      name: Require the planning decision receipt contract
+      kind: condition
+      needs: [decide_plan]
+      checks:
+        - kind: value_equals
+          value: ${steps.decide_plan.outputs.schemaVersion}
+          equals: planning-decision/v1
+        - kind: value_in
+          value: ${steps.decide_plan.outputs.revisionScope}
+          allowed: [focused, full, none]
+      outputs:
+        decisionRoute: "${steps.decide_plan.outputs.outcome}:${steps.decide_plan.outputs.revisionScope}"
+        reason: "The planning decision must use planning-decision/v1 and include revisionScope focused, full, or none."
+      onFailure: { action: block }
+
+    - key: validate_plan_decision
+      name: Require a valid planning outcome and revision scope
+      kind: condition
+      needs: [capture_plan_decision]
+      checks:
+        - kind: value_in
+          value: ${steps.capture_plan_decision.outputs.decisionRoute}
+          allowed: ['accepted:none', 'revise:focused', 'revise:full', 'needs_human:none']
+      outputs:
+        reason: "Planning decisions require none for accepted/needs_human and focused or full for revise; missing or contradictory routing blocks the workflow."
+      onFailure: { action: block }
+
+    - key: validate_plan_escalation_decision
+      name: Require a ruling on the collaborator's escalation
+      kind: condition
+      needs: [validate_plan_decision]
+      when:
+        - kind: value_equals
+          value: ${steps.capture_plan_collaboration.outputs.collaborationRoute}
+          equals: 'collab:needs_human'
+      checks:
+        - kind: value_in
+          value: ${steps.capture_plan_decision.outputs.decisionRoute}
+          allowed: ['revise:full', 'needs_human:none']
+      outputs:
+        reason: "The collaborator escalated, so this pass has no incorporation or independent review. The orchestrator must return needs_human with revisionScope none or revise with revisionScope full; it returned ${steps.capture_plan_decision.outputs.decisionRoute}."
+      onFailure: { action: block }
+
+    - key: validate_plan_parser_decision
+      name: Require a revision when the parser rejects the plan
+      kind: condition
+      needs: [validate_plan_escalation_decision]
+      when:
+        - kind: value_equals
+          value: ${steps.validate_plan_markdown.outputs.valid}
+          equals: false
+      checks:
+        - kind: value_in
+          value: ${steps.capture_plan_decision.outputs.decisionRoute}
+          allowed: ['revise:focused', 'revise:full', 'needs_human:none']
+      outputs:
+        reason: "The VMP parser rejected plan.md, so it cannot be accepted; the orchestrator returned ${steps.capture_plan_decision.outputs.decisionRoute}. Parser errors: ${steps.validate_plan_markdown.outputs.errors}"
+      onFailure: { action: block }
+
+    - key: clarify_plan
+      name: Resolve the orchestrator's planning questions
+      kind: human_gate
+      needs: [validate_plan_parser_decision]
+      when:
+        - kind: value_equals
+          value: ${steps.decide_plan.outputs.outcome}
+          equals: needs_human
+      humanGate:
+        prompt: "The planning orchestrator needs answers before the plan for ${steps.load_task.outputs.taskKey} can continue. ${steps.decide_plan.outputs.summary}"
+        approvalText: Submit answers
+        rejectionText: Stop
+        questions: ${steps.decide_plan.outputs.questions}
+        preview:
+          documents:
+            - key: decision
+              label: Plan decision
+              path: projects/${steps.load_task.outputs.taskKey}/plan-decision.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+            - key: plan
+              label: Plan
+              path: projects/${steps.load_task.outputs.taskKey}/plan.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+            - key: spec
+              label: Accepted specification
+              path: projects/${steps.load_task.outputs.taskKey}/spec.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        references:
+          - kind: task
+            target: ${steps.load_task.outputs.taskKey}
+            label: Open the task
+          - kind: session
+            target: ${steps.launch_orchestrator.outputs.sessionUlid}
+            label: Open the orchestrator session
+      waitsFor:
+        kind: workflow_input
+        expected: [answered, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      outputs:
+        outcome: $.normalized.input.outcome
+        questions: $.normalized.input.questions
+        answers: $.normalized.input.payload.answers
+      onFailure: { action: block }
+
+    - key: route_plan
+      name: Require orchestrator acceptance before completing
+      kind: condition
+      needs: [clarify_plan]
+      checks:
+        - kind: value_equals
+          value: ${steps.decide_plan.outputs.outcome}
+          equals: accepted
+          domain: [accepted, revise, needs_human]
+      outputs:
+        questions: ${steps.clarify_plan.outputs.questions}
+        answers: ${steps.clarify_plan.outputs.answers}
+        reason: "Completion requires an accepted plan; orchestrator returned ${steps.decide_plan.outputs.outcome}: ${steps.decide_plan.outputs.summary}"
+        revisionScope: ${steps.decide_plan.outputs.revisionScope}
+        summary: ${steps.decide_plan.outputs.summary}
+      onFailure: { action: loop_back, to: write_plan, max: 3, exhausted: block }
+
+    - key: approve_plan
+      name: Approve the accepted plan before it is saved
+      kind: human_gate
+      needs: [route_plan]
+      humanGate:
+        enabled: true
+        prompt: "The planning orchestrator accepted the specification and plan for ${steps.load_task.outputs.taskKey}. Approve saving the plan to VMP? Saving creates an approved plan and its backlog tasks."
+        approvalText: Approve and save plan
+        rejectionText: Reject
+        preview:
+          documents:
+            - key: plan
+              label: Plan
+              path: projects/${steps.load_task.outputs.taskKey}/plan.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+            - key: plan_decision
+              label: Plan decision
+              path: projects/${steps.load_task.outputs.taskKey}/plan-decision.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+            - key: spec
+              label: Specification
+              path: projects/${steps.load_task.outputs.taskKey}/spec.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+            - key: spec_decision
+              label: Specification decision
+              path: projects/${steps.load_task.outputs.taskKey}/spec-decision.md
+              sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+      waitsFor:
+        kind: workflow_input
+        expected: [approved, rejected]
+        authorizedHandles: ["${runtime.actorHandle}"]
+      onFailure: { action: block }
+
+    - key: commit_plan
+      name: Save the approved plan to VMP
+      kind: tool
+      needs: [approve_plan]
+      tool: { id: vmp, action: commit_markdown_from_worktree }
+      inputs:
+        taskKey: ${steps.load_task.outputs.taskKey}
+        sourceSessionUlid: ${steps.launch_orchestrator.outputs.sessionUlid}
+        relativePath: ${steps.launch_orchestrator.outputs.planPath}
+        plannerAgentHandle: planning-plan-creator
+      outputs:
+        planKey: $.normalized.planKey
+
+    - key: verify_plan
+      name: Read back the saved plan
+      kind: tool
+      needs: [commit_plan]
+      tool: { id: vmp, action: get_plan }
+      inputs:
+        planKey: ${steps.commit_plan.outputs.planKey}
