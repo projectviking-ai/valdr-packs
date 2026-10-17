@@ -12,13 +12,13 @@ Import the Workflow pack and start `valdr-workflow.planning-team.spec-and-plan` 
 {
   "taskKey": "PROJECT-123",
   "orchestratorPresetKey": "your-orchestrator-preset",
-  "creatorPresetKey": "your-sol-preset",
-  "collaboratorPresetKey": "your-opus-preset",
+  "creatorPresetKey": "your-creator-preset",
+  "collaboratorPresetKey": "your-collaborator-preset",
   "reviewerPresetKey": "your-reviewer-preset"
 }
 ```
 
-The four preset keys select the provider, model and reasoning settings. Each creator, collaborator and reviewer preset is used for both the specification and plan phases. Choose different models for creators and collaborators, such as SOL and Claude Opus. The workflow does not pin models.
+The four preset keys select the provider, model and reasoning settings. Each creator, collaborator and reviewer preset is used for both the specification and plan phases. Choose different models for creators and collaborators. The workflow does not pin models.
 
 Before starting:
 

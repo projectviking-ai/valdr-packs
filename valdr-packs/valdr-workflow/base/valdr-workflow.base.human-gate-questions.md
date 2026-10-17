@@ -15,7 +15,7 @@ The list is a JSON array of 1 to 12 question objects. Each object uses only thes
 
 | Field | Rule |
 | --- | --- |
-| `id` | Starts with a letter, then letters, digits, `_` or `-`; at most 64 characters; unique in the list. Use a descriptive name such as `notification_channel`. Never `constructor`, `prototype`, or `__proto__`. |
+| `id` | Starts with a letter, then letters, digits, `_` or `-`; at most 64 characters; unique in the list. Use a descriptive name such as `notification_channel`. |
 | `type` | Exactly one of `yes_no`, `single_choice`, `multiple_choice`, `text`. |
 | `label` | The complete question. Nonblank, at most 1,000 characters. |
 | `options` | Required for `single_choice` and `multiple_choice`, and not allowed on `yes_no` or `text`. 2 to 20 objects, each with an `id` (same rule as above, unique among the options) and a nonblank `label` of at most 300 characters. |

@@ -18,11 +18,11 @@ workflow:
     creatorPresetKey:
       type: string
       required: true
-      description: Registered preset for both creators, including provider, model, and reasoning settings. Use a SOL preset for SOL authorship.
+      description: Registered preset for both creators, including provider, model, and reasoning settings.
     collaboratorPresetKey:
       type: string
       required: true
-      description: Registered preset for both collaborators. Select a different model from the creator, such as Claude Opus.
+      description: Registered preset for both collaborators. Select a different model from the creator.
     reviewerPresetKey:
       type: string
       required: true
@@ -448,7 +448,7 @@ workflow:
         prompt: |-
           Decide specification acceptance for task ${steps.load_task.outputs.taskKey}.
           Read the task, current human comments, brief.md, and actual spec.md in projects/${steps.load_task.outputs.taskKey}/. Assess the artifact and relevant evidence before comparing spec-collaboration.md, spec-review.md, and prior decisions.
-          Audit every original task constraint directly against the specification and observable scenarios, preserving its qualifiers. Record the compact source-to-artifact/check audit in spec-decision.md before acceptance. The brief and worker consensus cannot authorize exceptions; preserved failures include status, stdout, stderr, and side effects under combined failure conditions. Apply this check on focused passes too.
+          Audit every original task constraint directly against the specification and observable scenarios, preserving its qualifiers. Record the compact source-to-artifact/check audit in spec-decision.md before acceptance. The brief and worker consensus cannot authorize exceptions. Check task-relevant observable results, error behavior, and side effects where preservation is required. Apply this check on focused passes too.
           Collaborator outcome: ${steps.collaborate_spec.outputs.outcome}. Reviewer recommendation: ${steps.review_spec.outputs.outcome}. An empty value means that turn did not run on this pass. Assess the actual document against the brief and requirements; record why you accept or disagree with recommendations.
           If the collaborator outcome is needs_human, incorporation and independent review were skipped so you can rule on its question first: ${steps.collaborate_spec.outputs.summary}
           Read the question in spec-collaboration.md. Return needs_human with the exact question when evidence cannot settle it. When evidence settles it, record the answer and resulting instructions in spec-decision.md and return revise with revisionScope full. Never return accepted or focused on an escalated pass; the workflow blocks them.
@@ -624,7 +624,6 @@ workflow:
       outputs:
         sessionUlid: $.normalized.session.sessionUlid
 
-    # ponytail: revisions stay within their phase; add a parent cycle if planning must reopen accepted specs.
     - key: write_plan
       name: Create or revise the implementation plan
       kind: session
@@ -892,7 +891,7 @@ workflow:
         prompt: |-
           Decide plan acceptance for task ${steps.load_task.outputs.taskKey}.
           Read the task, current human comments, brief.md, accepted spec.md and spec-decision.md, and actual plan.md in projects/${steps.load_task.outputs.taskKey}/. Assess the artifact and relevant evidence before comparing plan-collaboration.md, plan-review.md, and prior plan decisions.
-          Independently audit every original task constraint against retained task Summary/Acceptance and concrete checks; record the compact audit in plan-decision.md before acceptance, including on focused passes. An accepted spec is not authority to narrow the task. Check preserved failure status, stdout, stderr, and side effects under combined failure conditions; a spec conflict must reopen through the existing needs_human route rather than be accepted.
+          Independently audit every original task constraint against retained task Summary/Acceptance and concrete checks; record the compact audit in plan-decision.md before acceptance, including on focused passes. An accepted spec is not authority to narrow the task. Check task-relevant observable results, error behavior, and side effects where preservation is required; a spec conflict must reopen through the existing needs_human route rather than be accepted.
           Collaborator outcome: ${steps.collaborate_plan.outputs.outcome}. Reviewer recommendation: ${steps.review_plan.outputs.outcome}. An empty value means that turn did not run on this pass. Assess the actual plan for specification coverage, feasible sequencing, concrete tasks, and validation; record why you accept or disagree with recommendations.
           If the collaborator outcome is needs_human, incorporation and independent review were skipped so you can rule on its question first: ${steps.collaborate_plan.outputs.summary}
           Read the question in plan-collaboration.md. Return needs_human with the exact question when evidence cannot settle it. When evidence settles it, record the answer and resulting instructions in plan-decision.md and return revise with revisionScope full. Never return accepted or focused on an escalated pass; the workflow blocks them.
