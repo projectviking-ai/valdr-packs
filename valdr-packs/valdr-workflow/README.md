@@ -2,7 +2,7 @@
 
 `valdr-workflow` adds reusable task, sprint, planning, and pull-request workflows to Valdr. It is a companion to the Valdr Sovereign pack.
 
-Download both packs from the same release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases). Use Valdr 0.3.4 as the runtime, available from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). Source builds and pack validation use the CLI version in [`VALDR_WORKFLOW_CLI_VERSION`](../../VALDR_WORKFLOW_CLI_VERSION) at that release tag.
+Download both packs from the same release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases). Use Valdr 0.4.0 as the runtime, available from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). Source builds and pack validation use the CLI version in [`VALDR_WORKFLOW_CLI_VERSION`](../../VALDR_WORKFLOW_CLI_VERSION) at that release tag.
 
 | Component | Asset |
 | --- | --- |

@@ -18,6 +18,24 @@ const run = (cli, action, input, env, envelope = request(cli, action, input)) =>
 };
 const example = (key, schema) => schema.type === 'integer' ? 7 : schema.enum?.[0] ?? ({ repo: 'org/repo', key: 'DEMO-1', project: 'demo-project', region: 'us-east-1', zone: 'us-central1-a' }[key] ?? 'example');
 
+test('generated CLI manifests match checked-in snapshots with either Bun empty-collection layout', () => {
+  const generator = new URL('generate-user-workflow-cli-tools.mjs', import.meta.url).href;
+  for (const layout of ['inline', 'block']) {
+    const result = spawnSync('bun', ['-e', `
+      const stringify = Bun.YAML.stringify;
+      Bun.YAML.stringify = (...args) => {
+        const yaml = stringify(...args);
+        return ${JSON.stringify(layout)} === 'inline'
+          ? yaml.replace(/^([ \\t]*[A-Za-z_][\\w-]*:)\\n[ \\t]+(\\{\\}|\\[\\])$/gm, '$1 $2')
+          : yaml.replace(/^([ \\t]*)([A-Za-z_][\\w-]*:)[ \\t]+(\\{\\}|\\[\\])$/gm, '$1$2\\n$1  $3');
+      };
+      process.argv.push('--check');
+      await import(${JSON.stringify(generator)});
+    `], { encoding: 'utf8' });
+    assert.equal(result.status, 0, `${layout} layout: ${result.stderr}`);
+  }
+});
+
 test('every starter action dispatches through independent typed CLI metadata', async () => {
   const bin = mkdtempSync(path.join(tmpdir(), 'valdr-cli-test-'));
   try {

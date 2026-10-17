@@ -351,5 +351,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       execution: 'supported', sideEffects: 'read', retry: 'idempotent',
     })),
   };
-  emit(new URL(`${cli}.tool.yaml`, directory), `${Bun.YAML.stringify(manifest, null, 2).replace(/[ \t]+$/gm, '')}\n`);
+  // Keep the checked-in block layout when Bun emits inline empty collections.
+  const yaml = Bun.YAML.stringify(manifest, null, 2)
+    .replace(/[ \t]+$/gm, '')
+    .replace(/^([ \t]*)([A-Za-z_][\w-]*:)[ \t]+(\{\}|\[\])$/gm, '$1$2\n$1  $3');
+  emit(new URL(`${cli}.tool.yaml`, directory), `${yaml}\n`);
 }

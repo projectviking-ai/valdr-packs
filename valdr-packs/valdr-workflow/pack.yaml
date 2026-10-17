@@ -17,3 +17,5 @@ includes:
     description: Shared workflow tool selection and detailed execution contracts.
   - path: workflows
     description: Workflow definitions for task readiness and delivery review.
+  - path: planning-team
+    description: Independent specification and planning team with orchestrator-owned acceptance.

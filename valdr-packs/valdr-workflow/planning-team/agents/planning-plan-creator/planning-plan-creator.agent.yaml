@@ -1,0 +1,14 @@
+schemaVersion: 1.0
+agent:
+  handle: planning-plan-creator
+  name: Planning Plan Creator
+  kind: bot
+  defaultRole: planner
+  tags: [valdr-workflow, planning-team, planning, plan]
+capabilities:
+  - key: valdr-workflow.planning-team.plan-creator.system
+    role: core
+  - key: valdr.planner.freya.schema
+    role: constraints
+  - key: valdr.planner.freya.tasks
+    role: constraints
