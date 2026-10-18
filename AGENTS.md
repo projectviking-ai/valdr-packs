@@ -1,6 +1,6 @@
 # Repository guidance
 
-This repository contains distributable Valdr agent packs, skills, commands, and packaging scripts. It is the source for pack content; Valdr's application/runtime code lives elsewhere. Keep work scoped to this repository and use the installed or released Valdr CLI rather than adding dependencies on a sibling `../valdr` checkout.
+This repository contains distributable Valdr agent packs, skills, commands, and packaging scripts. It is the source for pack content; Valdr's application/runtime code lives elsewhere. Keep work scoped to this repository and use the installed or released Valdr CLI.
 
 ## Sources and layout
 
