@@ -44,7 +44,7 @@ test("one release builds all five packs with the pinned CLI and publishes the re
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
   assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
-  assert.match(workflow, /run: make build-valdr-all/);
+  assert.match(workflow, /run: make build-valdr-all test-decision-tools\n/);
   assert.match(fs.readFileSync("Makefile", "utf8"), /^build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-tools$/m);
   assert.match(workflow, /tr -d '\\n' < VERSION/);
   assert.match(workflow, /if \[ -z "\$CLI_VERSION" \]/);
@@ -57,6 +57,8 @@ test("one release builds all five packs with the pinned CLI and publishes the re
   assert.ok(stepIndex("Fail if release tag already exists") >= 0);
   assert.ok(stepIndex("Fail if release tag already exists") < stepIndex("Download pinned Valdr CLI"));
   assert.ok(stepIndex("Fail if release tag already exists") < stepIndex("Build release archives"));
+  assert.ok(stepIndex("Build release archives") < stepIndex("Create GitHub Release"));
+  assert.doesNotMatch(steps[stepIndex("Build release archives")], /continue-on-error:|\n\s+if:/);
   for (const name of ["Fail if release tag already exists", "Create GitHub Release"]) {
     assert.match(steps[stepIndex(name)], /VERSION: \$\{\{ steps\.version\.outputs\.value \}\}/);
     assert.doesNotMatch(steps[stepIndex(name)], /\n\s+if:/);
@@ -68,12 +70,12 @@ test("one release builds all five packs with the pinned CLI and publishes the re
     /tar -xzf/,
     /actual_version="\$\(bin\/valdr version \| awk/,
     /make ci-validate/,
-    /make build-valdr-all/,
+    /make build-valdr-all test-decision-tools/,
     /gh release create/,
   ].map((pattern) => workflow.search(pattern));
   assert.ok(releaseOperations.every((index) => index >= 0), "expected every release operation");
   assert.ok(releaseOperations.every((index, position) => position === 0 || releaseOperations[position - 1] < index),
-    "release operations must be download, checksum, extract, verify, test, build, then release");
+    "release operations must be download, checksum, extract, verify, script tests, archive build and decision tests, then release");
 
   const ghSteps = steps.filter((step) => /\bgh\b/.test(step));
   assert.ok(ghSteps.length >= 3, "expected lookup, download, and publishing gh steps");
@@ -144,7 +146,42 @@ test("pull requests validate Workflow and Tools with the exact pinned public CLI
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
   assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
-  assert.match(workflow, /run: make validate-valdr-workflow validate-user-workflow-tools/);
+  assert.match(workflow, /run: make validate-valdr-workflow test-decision-tools\n/);
+});
+
+test("decision test target builds its archive and stays credential-free even with inherited opt-in", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "decision-make-"));
+  t.after(() => fs.rmSync(directory, { force: true, recursive: true }));
+  fs.copyFileSync("Makefile", path.join(directory, "Makefile"));
+  fs.copyFileSync("VALDR_WORKFLOW_CLI_VERSION", path.join(directory, "VALDR_WORKFLOW_CLI_VERSION"));
+  const bin = path.join(directory, "bin");
+  fs.mkdirSync(bin);
+  const calls = path.join(directory, "calls");
+  const fakeValdr = path.join(bin, "valdr");
+  fs.writeFileSync(fakeValdr, '#!/bin/sh\nprintf "valdr:%s\\n" "$*" >> "$DECISION_CALLS"\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, "node"), '#!/bin/sh\nprintf "node:%s:%s\\n" "$VALDR_DECIDE_ISOLATED" "$*" >> "$DECISION_CALLS"\nexit "$DECISION_TEST_STATUS"\n', { mode: 0o755 });
+  const testDirectory = path.join(directory, "valdr-packs/valdr-tools/tests/decide");
+  fs.mkdirSync(testDirectory, { recursive: true });
+  for (const name of ["adapters", "isolated-valdr"]) fs.writeFileSync(path.join(testDirectory, `${name}.test.mjs`), "");
+
+  for (const testStatus of ["0", "1"]) {
+    fs.writeFileSync(calls, "");
+    const result = spawnSync("make", ["test-decision-tools", `VALDR_BIN=${fakeValdr}`], {
+      cwd: directory,
+      encoding: "utf8",
+      env: {
+        ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+        VALDR_DECIDE_ISOLATED: "1", DECISION_CALLS: calls, DECISION_TEST_STATUS: testStatus,
+      },
+    });
+    if (testStatus === "0") assert.equal(result.status, 0, result.stderr);
+    else assert.notEqual(result.status, 0, "decision failures must fail the Make target");
+    assert.deepEqual(fs.readFileSync(calls, "utf8").trim().split("\n"), [
+      "valdr:validate-pack valdr-packs/valdr-tools",
+      "valdr:generate-valdr-pack valdr-packs/valdr-tools --output build/valdr-tools.valdr-pack.tar.gz --exported-at 0",
+      "node:0:--test valdr-packs/valdr-tools/tests/decide/adapters.test.mjs valdr-packs/valdr-tools/tests/decide/isolated-valdr.test.mjs",
+    ]);
+  }
 });
 
 test("workflow composition closes current pins and forwards a non-origin remote", () => {

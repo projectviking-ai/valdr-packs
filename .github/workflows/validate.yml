@@ -64,7 +64,7 @@ jobs:
       - name: Validate packs and run script tests
         run: make ci-validate
 
-      - name: Validate Workflow and Tools packs
+      - name: Validate Workflow and test decision tools
         env:
           VALDR_BIN: ${{ steps.valdr.outputs.path }}
-        run: make validate-valdr-workflow validate-user-workflow-tools
+        run: make validate-valdr-workflow test-decision-tools

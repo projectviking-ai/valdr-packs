@@ -1,0 +1,139 @@
+{
+  "provenance": {
+    "sourceUrl": "https://github.com/NandhaKishorM/laya/blob/main/docs/http-api.md",
+    "checkedAt": "2026-10-17",
+    "synthetic": true,
+    "note": "Authored contract example, not a captured live response."
+  },
+  "input": {
+    "engine": {
+      "provider": "laya",
+      "model": "english"
+    },
+    "text": "Fix the validation error.",
+    "questions": [
+      {
+        "id": "kind",
+        "type": "choice",
+        "instructions": "Which deliverable is requested?",
+        "options": [
+          {
+            "id": "code",
+            "description": "Program behavior"
+          },
+          {
+            "id": "docs",
+            "description": "Written guidance"
+          }
+        ],
+        "acceptance": {
+          "minSelectedProbability": 0.8
+        }
+      },
+      {
+        "id": "ready",
+        "type": "predicate",
+        "instructions": "Is the request actionable?",
+        "acceptance": {
+          "noAtMost": 0.2,
+          "yesAtLeast": 0.8
+        }
+      },
+      {
+        "id": "size",
+        "type": "score",
+        "instructions": "How much work is requested?",
+        "levels": [
+          {
+            "id": "small",
+            "description": "One simple edit"
+          },
+          {
+            "id": "medium",
+            "description": "Several related edits"
+          },
+          {
+            "id": "large",
+            "description": "Many independent changes"
+          }
+        ],
+        "acceptance": {
+          "minSelectedProbability": 0.4
+        }
+      }
+    ]
+  },
+  "request": {
+    "model": "english",
+    "state": "Fix the validation error.",
+    "questions": {
+      "kind": {
+        "type": "choice",
+        "instructions": "Which deliverable is requested?",
+        "criteria": {
+          "code": "Program behavior",
+          "docs": "Written guidance"
+        }
+      },
+      "ready": {
+        "type": "noul",
+        "instructions": "Is the request actionable?"
+      },
+      "size": {
+        "type": "score",
+        "instructions": "How much work is requested?",
+        "criteria": [
+          "One simple edit",
+          "Several related edits",
+          "Many independent changes"
+        ]
+      }
+    }
+  },
+  "response": {
+    "model": "laya-rl-agent",
+    "answers": {
+      "kind": {
+        "type": "choice",
+        "choice": "code",
+        "probabilities": {
+          "code": 0.79,
+          "docs": 0.21
+        },
+        "confidence": 0.99,
+        "answer_confidence": 0.79
+      },
+      "ready": {
+        "type": "noul",
+        "noul": 0.8
+      },
+      "size": {
+        "type": "score",
+        "score": 0.8,
+        "legend": {
+          "0": "One simple edit",
+          "1": "Several related edits",
+          "2": "Many independent changes"
+        },
+        "probabilities": {
+          "0": 0.45,
+          "1": 0.3,
+          "2": 0.25
+        },
+        "confidence": 0.1
+      }
+    },
+    "usage": {
+      "input_tokens": 80,
+      "output_tokens": 0,
+      "truncated": false,
+      "truncated_questions": [],
+      "state_tokens_dropped": 0
+    },
+    "routing": {
+      "model": "english",
+      "reason": "forced model",
+      "repo": "convaiinnovations/laya"
+    }
+  }
+}

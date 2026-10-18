@@ -1,0 +1,434 @@
+schemaVersion: 1
+id: valdr-tools.user.decide
+revision: 1.0.0
+icon: cpu-chip
+name: Decision
+description: "Answer text decision questions with an explicitly selected Laya, local Ollama, Jev, or OpenAI engine and caller-defined acceptance policies."
+files:
+  - path: runner.mjs
+  - path: contract.mjs
+  - path: http.mjs
+  - path: systemone.mjs
+  - path: adapters/laya.mjs
+  - path: adapters/ollama.mjs
+  - path: adapters/jev.mjs
+  - path: adapters/openai.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    - LAYA_URL
+    - LAYA_API_KEY
+    - OLLAMA_URL
+    - TYPESAFE_API_KEY
+    - OPENAI_API_KEY
+limits:
+  timeoutSeconds: 60
+  maxInputBytes: 65536
+  maxResultBytes: 65536
+  maxLogBytes: 8192
+actions:
+  - id: decide
+    path:
+      - decision
+      - decide
+    name: Decide
+    description: "Evaluate choice, predicate, and ordered score questions in one inference call. Acceptance means the specified numerical policy passed; uncertainty/refusal remain successful outcomes."
+    inputSchema:
+      type: object
+      properties:
+        engine:
+          type: object
+          properties:
+            provider:
+              enum:
+                - laya
+                - ollama
+                - jev
+                - openai
+            model:
+              type: string
+              minLength: 1
+              pattern: \S
+          required:
+            - provider
+            - model
+          additionalProperties: false
+        text:
+          type: string
+          minLength: 1
+          pattern: \S
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            oneOf:
+              - type: object
+                properties:
+                  id:
+                    $ref: "#/$defs/id"
+                  type:
+                    const: choice
+                  instructions:
+                    type: string
+                    minLength: 1
+                    pattern: \S
+                  options:
+                    type: array
+                    minItems: 2
+                    maxItems: 26
+                    items:
+                      $ref: "#/$defs/item"
+                  acceptance:
+                    type: object
+                    properties:
+                      minSelectedProbability:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - minSelectedProbability
+                    additionalProperties: false
+                required:
+                  - id
+                  - type
+                  - instructions
+                  - options
+                  - acceptance
+                additionalProperties: false
+              - type: object
+                properties:
+                  id:
+                    $ref: "#/$defs/id"
+                  type:
+                    const: predicate
+                  instructions:
+                    type: string
+                    minLength: 1
+                    pattern: \S
+                  acceptance:
+                    type: object
+                    properties:
+                      noAtMost:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                      yesAtLeast:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - noAtMost
+                      - yesAtLeast
+                    additionalProperties: false
+                required:
+                  - id
+                  - type
+                  - instructions
+                  - acceptance
+                additionalProperties: false
+              - type: object
+                properties:
+                  id:
+                    $ref: "#/$defs/id"
+                  type:
+                    const: score
+                  instructions:
+                    type: string
+                    minLength: 1
+                    pattern: \S
+                  levels:
+                    type: array
+                    minItems: 2
+                    maxItems: 10
+                    items:
+                      $ref: "#/$defs/item"
+                  acceptance:
+                    type: object
+                    properties:
+                      minSelectedProbability:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                    required:
+                      - minSelectedProbability
+                    additionalProperties: false
+                required:
+                  - id
+                  - type
+                  - instructions
+                  - levels
+                  - acceptance
+                additionalProperties: false
+      required:
+        - engine
+        - text
+        - questions
+      additionalProperties: false
+      $defs:
+        id:
+          type: string
+          maxLength: 64
+          pattern: "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+        item:
+          type: object
+          properties:
+            id:
+              type: string
+              maxLength: 64
+              pattern: "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+              not:
+                enum:
+                  - unsure
+                  - refused
+            description:
+              type: string
+              minLength: 1
+              pattern: \S
+          required:
+            - id
+            - description
+          additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        engine:
+          type: object
+          properties:
+            provider:
+              enum:
+                - laya
+                - ollama
+                - jev
+                - openai
+            requestedModel:
+              type: string
+              minLength: 1
+              pattern: \S
+            resolvedModel:
+              type: string
+              minLength: 1
+              pattern: \S
+            modelDigest:
+              type: string
+              minLength: 1
+              pattern: \S
+            requestId:
+              type: string
+              minLength: 1
+              pattern: \S
+          required:
+            - provider
+            - requestedModel
+          additionalProperties: false
+        answers:
+          type: object
+          minProperties: 1
+          maxProperties: 20
+          propertyNames:
+            $ref: "#/$defs/id"
+          additionalProperties:
+            oneOf:
+              - type: object
+                properties:
+                  type:
+                    const: choice
+                  status:
+                    enum:
+                      - accepted
+                      - uncertain
+                  outcome:
+                    $ref: "#/$defs/id"
+                  selected:
+                    $ref: "#/$defs/id"
+                  selectedProbability:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Probability of the selected option or most likely level; used for acceptance.
+                  probabilities:
+                    type: object
+                    minProperties: 2
+                    maxProperties: 26
+                    propertyNames:
+                      $ref: "#/$defs/id"
+                    additionalProperties:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                  providerConfidence:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: "Separate provider confidence, when reported; never used as selected probability."
+                required:
+                  - type
+                  - status
+                  - outcome
+                  - selected
+                  - selectedProbability
+                  - probabilities
+                additionalProperties: false
+                oneOf:
+                  - properties:
+                      status:
+                        const: uncertain
+                      outcome:
+                        const: unsure
+                  - properties:
+                      status:
+                        const: accepted
+                      outcome:
+                        type: string
+                        maxLength: 64
+                        pattern: "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                        not:
+                          enum:
+                            - unsure
+                            - refused
+              - type: object
+                properties:
+                  type:
+                    const: predicate
+                  status:
+                    enum:
+                      - accepted
+                      - uncertain
+                  outcome:
+                    $ref: "#/$defs/id"
+                  probabilityTrue:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                required:
+                  - type
+                  - status
+                  - outcome
+                  - probabilityTrue
+                additionalProperties: false
+                oneOf:
+                  - properties:
+                      status:
+                        const: uncertain
+                      outcome:
+                        const: unsure
+                  - properties:
+                      status:
+                        const: accepted
+                      outcome:
+                        enum:
+                          - "yes"
+                          - "no"
+              - type: object
+                properties:
+                  type:
+                    const: score
+                  status:
+                    enum:
+                      - accepted
+                      - uncertain
+                  outcome:
+                    $ref: "#/$defs/id"
+                  selected:
+                    $ref: "#/$defs/id"
+                  selectedProbability:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Probability of the selected option or most likely level; used for acceptance.
+                  probabilities:
+                    type: object
+                    minProperties: 2
+                    maxProperties: 26
+                    propertyNames:
+                      $ref: "#/$defs/id"
+                    additionalProperties:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                  selectedIndex:
+                    type: integer
+                    minimum: 0
+                    maximum: 9
+                  expectedIndex:
+                    type: number
+                    minimum: 0
+                    maximum: 9.1
+                  providerConfidence:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: "Separate provider confidence, when reported; never used as selected probability."
+                required:
+                  - type
+                  - status
+                  - outcome
+                  - selected
+                  - selectedProbability
+                  - probabilities
+                  - selectedIndex
+                  - expectedIndex
+                additionalProperties: false
+                oneOf:
+                  - properties:
+                      status:
+                        const: uncertain
+                      outcome:
+                        const: unsure
+                  - properties:
+                      status:
+                        const: accepted
+                      outcome:
+                        type: string
+                        maxLength: 64
+                        pattern: "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                        not:
+                          enum:
+                            - unsure
+                            - refused
+              - type: object
+                properties:
+                  type:
+                    enum:
+                      - choice
+                      - predicate
+                      - score
+                  status:
+                    const: refused
+                  outcome:
+                    const: refused
+                required:
+                  - type
+                  - status
+                  - outcome
+                additionalProperties: false
+        latencyMs:
+          type: number
+          minimum: 0
+        usage:
+          type: object
+          properties:
+            inputTokens:
+              type: integer
+              minimum: 0
+            outputTokens:
+              type: integer
+              minimum: 0
+          required: []
+          additionalProperties: false
+          minProperties: 1
+      required:
+        - engine
+        - answers
+        - latencyMs
+      additionalProperties: false
+      $defs:
+        id:
+          type: string
+          maxLength: 64
+          pattern: "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+    execution: supported
+    sideEffects: read
+    retry: idempotent
