@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import test from 'node:test';
 import { createLifecycle } from '../../core/lifecycle.mjs';
 import { fileURLToPath } from 'node:url';
+import { configureRuntimeEnvironment } from '../runtime-environment.mjs';
 
 test('cancellation aborts work, closes late registrations, and retains failed cleanup', async () => {
   const lifecycle = createLifecycle({ cleanupTimeoutMs: 40 });
@@ -43,6 +44,7 @@ test('real process interruption writes cancellation evidence after resource clea
 });
 
 test('doctor interruption during MCP startup closes its child and records a cancelled summary', async t => {
+  configureRuntimeEnvironment(t);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-startup-interrupt-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const binary = path.join(root, 'valdr');

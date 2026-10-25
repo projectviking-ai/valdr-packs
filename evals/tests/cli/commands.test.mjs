@@ -193,9 +193,10 @@ test('missing credentials keep progress off JSON output and prevent live startup
   const binary = path.join(root, 'valdr');
   const launched = path.join(root, 'launched');
   fs.writeFileSync(binary, `#!/usr/bin/env node\nif(process.argv[2]==='version'){console.log('valdr 99.0.0 fixture');process.exit(0); }\nrequire('node:fs').writeFileSync(${JSON.stringify(launched)},'unexpected execution');process.exit(1);\n`, { mode: 0o700 });
+  fs.writeFileSync(path.join(root, 'codex'), `#!/bin/sh\n[ "$1" = --version ] && { echo "codex-cli 1.0.0"; exit 0; }\necho "unexpected execution" > ${JSON.stringify(launched)}\nexit 42\n`, { mode: 0o700 });
   const result = spawnSync(process.execPath, [entry, 'run', 'task-repair', '--json', '--scenario', '01_exact_replacement',
     '--valdr-bin', binary, '--evidence-root', path.join(root, 'evidence')], { encoding: 'utf8', timeout: 10000,
-      env: { ...process.env, VALDR_DB_USERNAME: '', VALDR_DB_PASSWORD: '' } });
+      env: { ...process.env, PATH: `${root}${path.delimiter}${process.env.PATH}`, VALDR_DB_USERNAME: '', VALDR_DB_PASSWORD: '' } });
   assert.equal(result.status, 1, result.stderr);
   const report = JSON.parse(result.stdout);
   assert.equal(report.outcome, 'infrastructure_incomplete');
