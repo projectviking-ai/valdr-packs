@@ -11,6 +11,10 @@ Build and packaging scripts for `valdr-packs`.
 | `generate-valdr-pack.mjs` | Build an importable `.valdr-pack.tar.gz` from a concrete pack directory | `<pack-dir>/pack.yaml` + includes | `build/<pack>.valdr-pack.tar.gz` |
 | `validate-valdr-pack.mjs` | Stage and validate the concrete Raider/Vanguard/Sovereign pack roots | optional tier names | console report + exit status |
 
+Agent and orchestrator evaluation lives in the top-level
+[`evals/` harness](../evals/README.md), with its own CLI, suites, tests, and usage
+guide.
+
 ## Version Source
 
 The canonical release version for this repository lives in the root `VERSION` file. Scripts that need the release version should read it through `scripts/lib/version.mjs` rather than hardcoding values in multiple places.
@@ -72,7 +76,7 @@ node scripts/validate-valdr-pack.mjs vanguard sovereign
 
 ### Notes
 
-- Validation is self-contained in this repository and does not depend on the sibling `valdr` repository.
+- Validation is self-contained in this repository.
 - Each tier is staged under `build/staging/<tier>/valdr` before validation.
 - Warnings are reported, but only validation errors produce a non-zero exit code.
 

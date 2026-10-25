@@ -1,7 +1,7 @@
 # Rust Task Agent (`rust-task-agent`)
 
 > **Type:** Dumb Agent (Code Executor)
-> **Pack:** `valdr-internal`
+> **Pack:** `valdr`
 > **Handle:** `@rust-task-agent`
 
 ## Overview
@@ -12,11 +12,11 @@ A language-specialized task executor for Rust codebases. It emphasizes safety, c
 
 | Capability | Role | Description |
 |------------|------|-------------|
-| `valdr.internal.agents.rust.rust-task-agent.system` | core | Main persona and execution workflow |
-| `valdr.internal.agents.rust.build` | constraints | Cargo build/tooling guidance |
-| `valdr.internal.agents.rust.code.rules` | constraints | Rust coding conventions |
-| `valdr.internal.agents.rust.design.solid` | workflow | Trait-driven design principles |
-| `valdr.internal.agents.rust.testing` | workflow | Unit/integration/property testing guidance |
+| `valdr.agents.rust.rust-task-agent.system` | core | Main persona and execution workflow |
+| `valdr.agents.rust.build` | constraints | Cargo build/tooling guidance |
+| `valdr.agents.rust.code.rules` | constraints | Rust coding conventions |
+| `valdr.agents.rust.design.solid` | workflow | Trait-driven design principles |
+| `valdr.agents.rust.testing` | workflow | Unit/integration/property testing guidance |
 
 ## Language Focus
 

@@ -221,7 +221,7 @@ In compact search output, each hit references attachments by `effectiveAttachmen
 pm_knowledge {
   action: "code_map",
   scope: "all",
-  query: "definition of searchKnowledge"
+  query: "definition of findCustomer"
 }
 ```
 

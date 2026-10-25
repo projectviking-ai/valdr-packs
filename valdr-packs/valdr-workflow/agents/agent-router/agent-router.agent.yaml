@@ -10,8 +10,7 @@ agent:
     - routing
     - assignment
 capabilities:
-  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
-  # system prompt, and the router must never choose without its policy.
+  # Always loaded: the router must never choose without its policy.
   - key: valdr-workflow.agent-routing.router.system
     role: core
   - key: valdr-workflow.agent-routing.policy

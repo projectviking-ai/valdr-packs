@@ -66,7 +66,7 @@ Allowed roles:
 
 ## Export/Import Guarantees
 
-- Export always emits prompt markdown (not JSON internals).
+- Export always emits prompt Markdown.
 - Export includes `tags="..."` when tags are present.
 - Import preserves canonicalized tags on prompt records.
 - Prompt shape is stable for direct tar/gzip roundtrip workflows.

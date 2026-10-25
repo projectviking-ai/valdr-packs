@@ -7,7 +7,7 @@ Valdr packs are portable, self-describing bundles of agents, prompts, and capabi
 
 ## Quick Start
 
-Download the Sovereign, Workflow, and Tools packs from the same release. Use Valdr 0.4.0 for this pack release, including the planning team's structured Questions gates; the source build and validation CLI is pinned separately in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION).
+Download the Sovereign, Workflow, and Tools packs from the same release. Use Valdr 0.4.0 for this pack release, including the planning team's structured Questions gates; the CLI used to build and validate these packs is pinned separately in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION).
 
 | Component | Release asset |
 | --- | --- |
@@ -16,7 +16,7 @@ Download the Sovereign, Workflow, and Tools packs from the same release. Use Val
 | Valdr Workflow pack | `valdr-workflow.valdr-pack.tar.gz` |
 | Valdr Tools pack | `valdr-tools.valdr-pack.tar.gz` |
 
-1. Download Valdr 0.4.0 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). For source builds and CLI pack validation, use the version in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag.
+1. Download Valdr 0.4.0 from [Valdr releases](https://github.com/projectviking-ai/valdr-releases/releases). For building packs from this checkout and validating them, use the version in [`VALDR_WORKFLOW_CLI_VERSION`](VALDR_WORKFLOW_CLI_VERSION) at your chosen pack release tag.
 2. Download `valdr-sovereign.valdr-pack.tar.gz` from your chosen release on [Valdr Packs releases](https://github.com/projectviking-ai/valdr-packs/releases).
 3. Download `valdr-workflow.valdr-pack.tar.gz` from that same release.
 4. In the Valdr UI pack import flow, preflight and import the Sovereign pack first, then the Workflow and Tools packs. Review the preflight plan before each commit. If a prior version is installed, use the import plan's update/replace operations; do not delete an active pack or interrupt frozen runs.
@@ -45,6 +45,26 @@ make sync-skills-gemini    # ~/.gemini/skills/
 make sync-skills-agent     # ~/.agents/skills/
 ```
 
+## Evaluating agents
+
+To test agents and orchestrators from this checkout, use the
+[Valdr evaluation harness](evals/README.md). It includes workflow-authoring and
+task-repair suites with fixture checks through the installed `valdr` CLI.
+Live runs use the public Codex CLI and scoped Valdr MCP access. Run from this
+repository root with Bun to reuse `.env` credentials and the existing default
+Valdr license. Discovery, previews and saved reports work offline. Start with:
+
+```sh
+bun evals/run.mjs list task-repair
+bun evals/run.mjs doctor task-repair
+bun evals/run.mjs run task-repair --scenario 01_exact_replacement --dry-run
+# After a run, read the saved result or compare two compatible trials:
+# bun evals/run.mjs runs
+# bun evals/run.mjs prune --older-than-days 60 --keep 10  # Preview only
+# bun evals/run.mjs report .valdr-evals/<run-directory>
+# bun evals/run.mjs compare .valdr-evals/<baseline> .valdr-evals/<candidate>
+```
+
 ## Repository Structure
 
 ```
@@ -64,7 +84,16 @@ valdr-packs/
 │   ├── build-valdr-tier.mjs   # Assemble Raider/Vanguard/Sovereign from source layers
 │   ├── generate-valdr-pack.mjs # Build importable .valdr-pack.tar.gz archives
 │   └── lib/runtime.mjs        # Shared runtime (normalization, hashing, validation)
-├── Makefile                   # Sync targets for installing skills
+├── evals/                     # Agent and orchestrator evaluation harness
+│   ├── run.mjs                # Single CLI for all evaluation suites
+│   ├── cli/                   # Commands, configuration, and prerequisite checks
+│   ├── core/                  # Isolated Valdr execution, sessions, and evidence
+│   ├── reporting/             # Saved-result summaries, comparisons, and HTML reports
+│   ├── retention/             # Evidence inventory and safe retention
+│   ├── suites/                # Workflow authoring and task repair
+│   ├── tests/                 # Core, suite, and binary integration tests
+│   └── docs/                  # Usage details and suite authoring contract
+├── Makefile                   # Skill sync, builds, and validation targets
 │
 └── valdr-packs/               # Agent pack definitions
     ├── PACK-SPEC.md           # pack.yaml format specification
@@ -206,13 +235,21 @@ An independently versioned companion to Sovereign that adds 24 workflow definiti
 | `sync-skills-gemini` | Sync skills to `~/.gemini/skills/` |
 | `sync-skills-agent` | Sync skills to `~/.agents/skills/` |
 | `validate-valdr-pack` | Stage and validate all three Valdr tier pack roots |
-| `test-scripts` | Run the repository script test suite |
-| `ci-validate` | Run pack validation plus script tests |
+| `test-scripts` | Run the repository script and evaluation test suites |
+| `test-evals` | Run agent evaluation harness tests without a model |
+| `check-evals` | Check installed CLI prerequisites and both fixture suites without model calls |
+| `test-evals-integration` | Check workflow execution and task repair/refusal with the installed `valdr` CLI, without model calls |
+| `check-evals-readiness` | Run offline tests, pinned-pack validation and installed `valdr` CLI checks; see [Readiness](evals/docs/readiness.md) |
+| `ci-validate` | Run pack validation, script tests and evaluation harness tests |
 | `generate-valdr-pack` | Run the generic pack archive generator |
 | `build-valdr-raider` | Build the Raider tier archive |
 | `build-valdr-vanguard` | Build the Vanguard tier archive |
 | `build-valdr-sovereign` | Build the Sovereign tier archive |
 | `build-valdr-all` | Build Raider, Vanguard, Sovereign, Workflow, and Tools archives with the pinned CLI |
+
+Use `VALDR_BIN=/path/to/valdr` to select the installed CLI. For
+`check-evals-readiness`, set `PACK_VALDR_BIN=/path/to/pinned/valdr` when pack
+validation uses a different executable; it defaults to `VALDR_BIN`.
 
 ### Generating Pack Archives
 
@@ -257,7 +294,7 @@ The three tier archives use the repository version internally. The Workflow and 
 
 ### CI Automation
 
-- Pull requests run pack validation and the lightweight script tests through `.github/workflows/validate.yml`. The full language-starter suite remains a local check.
+- Pull requests run pack validation, script tests and offline evaluation harness tests through `.github/workflows/validate.yml`. The full language-starter suite remains a local check.
 - Pushes to `main` trigger `.github/workflows/release.yml` for pack sources, shared build scripts, `VERSION`, `VALDR_WORKFLOW_CLI_VERSION`, `Makefile`, or the release workflow itself. It verifies the pinned Valdr CLI, validates the repository, builds all five archives, and publishes them to one `v<version>` GitHub Release for the pushed commit.
 
 For local verification:

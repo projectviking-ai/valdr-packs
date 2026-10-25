@@ -16,6 +16,12 @@ workflow before strict validation.
 
 The only way to stop for a person.
 
+Before using this fragment, declare required string inputs `taskKey` and
+`operatorHandle`. Supply `operatorHandle` with the registered human who will
+decide, even when a bot such as Verdandi starts the run. The upstream
+`create_spec` step must publish `path`, `writerSessionUlid`, and `reviewId` for
+the reviewed specification and its existing writer session and review.
+
 ```yaml
 - key: approve_spec
   name: Approve specification
@@ -45,7 +51,7 @@ The only way to stop for a person.
   waitsFor:
     kind: workflow_input
     expected: [approved, rejected]
-    authorizedHandles: ["${runtime.actorHandle}"]
+    authorizedHandles: ["${workflow.inputs.operatorHandle}"]
   onFailure: { action: block }
 ```
 
@@ -57,6 +63,63 @@ Feedback is valid only when at least one preview document exists. Each preview d
 
 Unlike a session wait, a human gate **does** author its `authorizedHandles` — the approval must come from a real human or operator identity. Human approval outcomes are `approved` and `rejected`; do not substitute the durable review outcomes `review_approved` and `review_changes_requested`.
 
+## Approve a pull-request proposal
+
+Use `humanGate.pullRequestProposal` to let the operator edit the title, body,
+and draft state before approving publication. Keep it separate from a Questions
+gate. Bind the repository, branches, exact head commit, writer session, and diff
+evidence from the steps that produced them.
+
+This fragment comes from the shipped `valdr-workflow.pull-request.create`
+workflow. It depends on that workflow's declared inputs and upstream evidence
+steps:
+
+```yaml
+- key: approve_proposal
+  name: Approve pull request proposal
+  kind: human_gate
+  needs: [draft_proposal]
+  humanGate:
+    prompt: Review and approve the frozen pull request proposal.
+    approvalText: Publish pull request
+    rejectionText: Reject
+    pullRequestProposal:
+      repository: "${steps.observe_remote.outputs.repositoryOwner}/${steps.observe_remote.outputs.repositoryName}"
+      remoteName: "${workflow.inputs.remoteName}"
+      baseBranch: "${workflow.inputs.baseBranch}"
+      headBranch: "${workflow.inputs.headBranch}"
+      headSha: "${steps.resolve_head.outputs.resolvedSha}"
+      writerSessionUlid: "${steps.draft_proposal.outputs.sessionUlid}"
+      evidenceDigest: "${steps.read_diff.outputs.digest}"
+      evidence:
+        runUlid: "${steps.read_diff.outputs.runUlid}"
+        stepRunUlid: "${steps.read_diff.outputs.stepRunUlid}"
+      initial:
+        title: "${steps.draft_proposal.outputs.title}"
+        body: "${steps.draft_proposal.outputs.body}"
+        draftFrom: "${workflow.inputs.initialDraft}"
+  waitsFor:
+    kind: workflow_input
+    expected: [approved, rejected]
+    authorizedHandles: ["${workflow.inputs.operatorHandle}"]
+  outputs:
+    outcome: $.normalized.input.outcome
+    title: $.normalized.input.payload.title
+    body: $.normalized.input.payload.body
+    draft: $.normalized.input.payload.draft
+```
+
+`evidence.runUlid`, `evidence.stepRunUlid`, and `evidenceDigest` must refer to
+the same captured diff. `initial.draftFrom` is an exact reference to a boolean;
+use `initial.draft` for a literal boolean. The initial title and body are the
+writer's proposal. The gate outputs `title`, `body`, and `draft` contain the
+operator-approved values.
+
+Before publishing, require `outcome: approved`, recheck the repository and
+commit evidence, and use those gate outputs for `github/create_pull_request`.
+Do not publish the writer's initial values after the operator has edited them.
+Hot-load `valdr-workflow.tools.github` for the publication sequence and inputs.
+
 ## Questions and answer propagation
 
 Set `humanGate.questions` to select Questions mode; do not invent a separate
@@ -66,9 +129,9 @@ mode field. It accepts a literal array or one exact array reference such as
 not a clarification outcome.
 
 Use 1–12 questions with unique IDs starting with a letter, then letters,
-digits, `_`, or `-`, up to 64 characters. Avoid `constructor`, `prototype`, and
-`__proto__`. Each needs a nonblank `label` of at most 1,000 characters and a
-`type`: `text`, `single_choice`, `multiple_choice`, or `yes_no`. Choice questions
+digits, `_`, or `-`, up to 64 characters. Choose descriptive names such as
+`release_target`; if the Builder rejects an ID, choose another name. Each needs
+a nonblank `label` of at most 1,000 characters and a `type`: `text`, `single_choice`, `multiple_choice`, or `yes_no`. Choice questions
 need 2–20 `options`, each with a unique `id` and nonblank `label` of at most
 300 characters. Questions default to required; `required: false` permits an
 omitted answer. Use previews for context; keep feedback and pull-request
@@ -145,10 +208,9 @@ Propagate them to each existing session that needs the context, and depend on
 its acknowledgement before resuming work. If clarification is conditional,
 guard all answer consumers on the same route; skipped gates have no answers.
 
-Human Questions and Approval waits have no callback token. Resolve them through
-the authorized human UI; public MCP input and a claimed `origin: user` do not
-establish human authority. Clarification never substitutes for a separate final
-approval, and `humanGate.enabled: false` is an intentional approval bypass.
+Resolve Human Questions and Approval through the authorized human UI. Public
+MCP input cannot supply a human approval or answer. Clarification never
+substitutes for a separate final approval, and `humanGate.enabled: false` is an intentional approval bypass.
 
 ## Check the revision budget before asking
 
@@ -175,6 +237,8 @@ Make the Questions gate depend on this guard and retain its `needs_human`
 route. Match the allowed passes to the actual bound; do not reset the budget
 after clarification. A deliberately designed same-pass continuation needs its
 own bound, not an extra uncounted revision.
+
+Public reference: [Human-gate steps](https://valdr.ai/valdr/docs/workflows/steps/human-gate/).
 
 <!--</instructions>-->
 <!--</capability>-->

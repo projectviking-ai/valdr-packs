@@ -91,7 +91,7 @@ When relevant, include in the body:
 
 - Task key (`TASK-123`) so retrieval surfaces the note when working that task again
 - Sprint id when the note is sprint-bound
-- File paths when the note is code-specific (`tools/pm-mcp/src/services/knowledge.ts`)
+- File paths when the note is code-specific (`src/services/search.ts`)
 - Other agent handles when the note is about an interaction
 
 ## Capture-on-Behalf-Of

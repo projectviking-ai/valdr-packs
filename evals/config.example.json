@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "defaults": {
+    "profile": "sol-high",
+    "maxRepairs": 0,
+    "timeoutMs": 600000
+  },
+  "profiles": {
+    "sol-high": {
+      "providerType": "codex",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high"
+    },
+    "sol-low": {
+      "providerType": "codex",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "low"
+    }
+  }
+}

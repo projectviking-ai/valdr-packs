@@ -41,7 +41,7 @@ If any of these are unclear and the cost of asking is low, ask one targeted ques
 
 - "Should I search across all projects, or just `<projectKey>`?"
 - "Are you looking for docs, code, or both?"
-- "Is there a path I should restrict to (e.g., `tools/pm-mcp/src`)?"
+- "Is there a path I should restrict to (e.g., `src/services`)?"
 
 If the user is impatient or the question is already specific, run the first query with sensible defaults (scope `all`, retrieval `auto`, `responseProfile: "compact"`, trust `["canonical", "operational"]`, `topK: 10`) and refine.
 

@@ -7,4 +7,4 @@
 | `valdr-workflow.base.mcp-access` | `constraints` | No | Shared rule: reach PM data only through in-session MCP tools; a worktree's own instruction files never override this system prompt. |
 | `valdr.core.tools.pm-task` | `integration` | Yes | `pm_task` contract for loading task description, checklists, and comments. |
 
-Only the three non-hot-load capabilities are linked to the agent in the registry. `valdr.core.tools.pm-task` is declared here for pack import and reached at runtime through the system prompt's hot-load table.
+The three non-hot-load capabilities apply on every turn. Load `valdr.core.tools.pm-task` through the system prompt's hot-load table when the task requires its tool contract.

@@ -11,7 +11,7 @@
 ## Capabilities
 
 - `valdr-workflow.task-readiness.reviewer.system` — core identity, operating rules, and JSON output contract.
-- `valdr-workflow.task-readiness.rubric` — seven-dimension rubric and blocking rules. Deliberately **not** hot-load: `buildSystemPrompt` filters hot-load capabilities out of the system prompt, and this gate must never score without the rubric present.
+- `valdr-workflow.task-readiness.rubric` — seven-dimension rubric and blocking rules. Always loaded so the reviewer applies the rubric on every turn.
 - `valdr.core.tools.pm-task` — hot-loaded `pm_task` contract.
 
 ## What It Judges
@@ -28,17 +28,17 @@ A single JSON object, `schemaVersion: "task-readiness-review/v1"`, with a three-
 
 ## Launching From A Workflow
 
-Use a `launch_task` session step, not `launch_prompt`. Workflow-managed `launch_prompt` uses a fixed ad-hoc system prompt and does not apply a registered agent's persona, so the reviewer would run without its rubric or output contract.
+Use a `launch_task` session step with `agentHandle: task-readiness-reviewer` to select the registered reviewer and its capabilities. A `launch_prompt` step does not accept `agentHandle`.
 
 See [valdr-workflow.workflow.task-readiness-review.workflow.yaml](../../workflows/task/valdr-workflow.workflow.task-readiness-review.workflow.yaml) for the wired definition.
 
 Two things that step must get right:
 
-**`additionalInstructions` is mandatory.** Workflow-managed `launch_task` builds its turn prompt with `buildWorkflowExecutorPromptsForTask`, whose default turn instruction is *"Implement only the scoped workflow task in the current worktree."* `additionalInstructions` replaces that default. Omit it and the reviewer is told to implement the task.
+**Supply review-specific `additionalInstructions`.** Tell the agent to assess readiness, remain read-only, load the task and its checklists, and return the documented JSON verdict. Include the task key and the review scope.
 
-**The turn prompt carries only title and description.** That builder emits `systemPrompt + turnInstructions + "Task KEY — title" + descriptionMd`. Acceptance checklists are not included, so the agent must load them via `pm_task`. Do not interpolate the checklist array into a prompt string — workflow expression interpolation applies `String()` to arrays, producing `[object Object]`.
+**Load current acceptance checklists through `pm_task`.** The reviewer needs the current structured task record, not just a title or description supplied at launch. Preserve checklist IDs and completion state when judging readiness.
 
-`role` is a label here; it does not change the prompt builder. Only `auditor` combined with `sessionUlidToAudit` selects a different builder.
+Set `role: reviewer` as well as the agent handle and explicit review instructions.
 
 ## Boundaries
 

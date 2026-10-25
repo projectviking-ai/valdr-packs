@@ -10,8 +10,7 @@ agent:
     - estimation
     - planning
 capabilities:
-  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
-  # system prompt, and the sizer must never estimate without the guide.
+  # Always loaded: the sizer must never estimate without the guide.
   - key: valdr-workflow.task-sizing.sizer.system
     role: core
   - key: valdr.core.sizing.ai-story-points

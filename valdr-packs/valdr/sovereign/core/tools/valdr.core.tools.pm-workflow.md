@@ -14,17 +14,15 @@ Workflow definition and run operations. Use this tool to find, read, validate, p
 | `validate` | Check a definition's shape | one of `definitionYaml`, `definitionJson`, `capabilityKey` |
 | `test_definition` | Create and drive a run from an **unsaved** definition | `clientRequestId` + `definitionYaml` or `definitionJson` |
 | `save_definition` | Register a definition under its pack | `definitionYaml` or `definitionJson` |
-| `delete_definition` | Retire an exact version (**trusted operator only**) | `workflowKey`, `version`, `expectedContentHash`; a real retirement also needs `actorHandle`, `reason`, `clientRequestId` |
-| `restore_definition` | Restore a retired version (**trusted operator only**) | `workflowKey`, `version`, `expectedContentHash`, `actorHandle`, `reason`, `clientRequestId` |
+| `delete_definition` | Preview retirement blockers for an exact version | `workflowKey`, `version`, `expectedContentHash`, `preview: true` |
 | `start` | Create a run from a registered definition | `workflowKey`, `clientRequestId` + `version` or `contentHash` |
 | `rerun` | Start a fresh run from a terminal one | `sourceRunUlid`, `clientRequestId` |
 | `get_run` | Inspect a run; compact by default, pass include flags for detail | `runUlid` |
 | `list_runs` | Search runs | — |
 | `events` | Read replayable run events | `runUlid` |
-| `advance` | Advance a ready or waiting run | `runUlid` |
-| `input` | Record approval or callback input into a wait | `runUlid`, `stepKey`, `kind`, `outcome`, `clientRequestId` |
-| `override_wait` | Audited override of a stuck wait (**trusted operator only**) | `runUlid`, `stepKey`, `outcome`, `actorHandle`, `reason`, `clientRequestId` |
-| `retry_step` | Retry a failed step | `runUlid`, `stepKey`, `clientRequestId` |
+| `advance` | Perform one ready transition | `runUlid` |
+| `input` | Record a callback for an open await-condition step | `runUlid`, `stepKey`, `waitUlid`, `kind: callback`, `outcome`, `callbackToken`, `clientRequestId` |
+| `retry_step` | Retry the latest eligible failed or blocked attempt | `runUlid`, `stepKey`, `expectedAttempt`, `clientRequestId`; check action help for attribution fields |
 | `cancel` | Cancel a run | `runUlid`, `clientRequestId` |
 | `delete_run` | Permanently delete a run tree | `runUlid`, `actorHandle`, `reason`, `clientRequestId` |
 | `help` | Show tool help; supports `topic` (an action name, or `'all'`) to filter actions/whenToUse/examples to one action | — |
@@ -44,7 +42,8 @@ pm_workflow {
   definitionYaml: "<yaml>",
 }
 ```
-`validate` applies strict validation automatically; no `strict` option is accepted. `allowAdvancedKinds: true` accepts non-normative composition for authoring only — never for something you intend to run.
+`validate` applies strict validation automatically. Resolve errors and review
+warnings before running the definition.
 
 **Prove it runs, without registering it:**
 ```
@@ -57,7 +56,9 @@ pm_workflow {
   clientRequestId: "<ulid>",
 }
 ```
-Validates strictly, then creates and drives a **durable run** from the unsaved definition and returns `run`, `drive`, `stepResults`, and `validation`. Side effects are real — sessions launch, tasks change. Use a disposable subject.
+Validates strictly, then creates and drives a durable run from the unsaved
+definition and returns its results. Side effects are real: sessions launch and
+tasks change. Use a disposable subject within the authorized execution scope.
 
 **Register it:**
 ```
@@ -83,7 +84,11 @@ pm_workflow {
   clientRequestId: "<ulid>",
 }
 ```
-`clientRequestId` must be a fresh ULID from `pm_generate_ulid` and is the idempotency key. `contextRef` is derived from the subject for task-scoped starts — do not set it. A workflow holds only one **active** run per context: the partial unique index covers `pending`, `running`, `waiting`, and `blocked`. A `completed`, `failed`, or `cancelled` run releases the context and a fresh start just works; a `blocked` one does not, even though it is terminal.
+Use a unique `clientRequestId` for each new run; `pm_generate_ulid` can supply
+one. Reuse it only when repeating the same start request after an interrupted
+response. A workflow permits one active run per subject. A pending, running,
+waiting, or blocked run prevents another start for that subject; inspect it
+before choosing recovery or a deliberate restart.
 
 **Inspect a run:**
 ```
@@ -96,7 +101,12 @@ pm_workflow {
   includeDefinition: true,
 }
 ```
-`includeSteps`, `includeWaits`, and `includeChildren` all default to **false**. With no include flags, `get_run` returns only `run` and `loopProgress[]` — a cheap status poll. Each collection appears only when its flag is set: `includeSteps: true` adds `steps[]`, plus `attempts` (full per-attempt history) and `retryEligibilityByStepKey`; `includeWaits: true` adds `waits[]`; `includeChildren: true` adds `children` (an object: `byStatus`, `runs[]`, `page`). `includeDefinition: true` returns the exact revision the run froze, resolved by its own content hash — the correct way to read what a run actually executed. `includeDependencies: true` adds the frozen `dependencyRevisionsJson` pin map to the run (and to child rows, if `includeChildren` is also set) — fetch it before `rerun`.
+The default response is compact enough for polling. Opt into step, wait, or child
+details with the matching include flag. `includeAcceptedInputs: true` adds
+accepted callback and gate evidence; `includeDefinition: true` includes the
+definition revision used by this run; `includeDependencies: true` shows its
+selected child-workflow versions. Request only the details needed for the
+diagnosis, and avoid logging callback tokens or sensitive agent output.
 
 **Read a definition by the bytes that ran:**
 ```
@@ -114,11 +124,18 @@ Only `completed`, `failed`, and `cancelled` runs are rerun-eligible; a `blocked`
 ## Notes
 
 - **Definitions are immutable per version.** Callers pin exact versions and a root run freezes the content hash of every child workflow it uses, so editing a child does not disturb a run in flight. Changing behaviour means a new version plus every caller that pins the old one.
-- **`input` is not a gate bypass.** Public `input` rejects `actor` and `actorHandle` and requires a callback token or trusted internal authority. Human gates require real human or operator identity.
-- **Three actions are unreachable from this tool.** `override_wait`, `restore_definition`, and `delete_definition` (except with `preview: true`) require a server-bound trusted operator identity that the public handler never supplies. They return `… requires trusted operator identity.` regardless of the arguments passed. Do not retry them with more parameters — ask a human operator.
-- **`delete_definition` retires, it does not erase.** `preview: true` shows blockers and is the one form the public tool will answer. Existing runs keep their frozen revision. `delete_run` is the destructive one and is callable — it needs actor, reason, and idempotency key.
+- **Callback input is not human approval.** Use `input` only for a supported
+  await-condition callback with the token issued for that wait. Human approval
+  and Questions gates resolve through Valdr UI.
+- **Retire and restore in Valdr UI.** Use `delete_definition` with `preview: true`
+  to inspect retirement blockers. Existing runs retain their selected revision.
+- **Run deletion is permanent.** `delete_run` removes closed workflow history
+  and needs the registered actor, reason, and request ID. Inspect the target
+  run tree before using it.
 - **Idempotency.** Every mutating action takes `clientRequestId`; reuse the same value to retry safely, and generate a fresh one for a genuinely new operation.
 - **`events` filters.** `eventTypes`, `afterSeq`, `limit`, and `includePayload` are all available — unlike `pm_session events`, this one can be narrowed. Payloads are opt-in (`includePayload: true`); default responses carry the event skeleton only.
+
+Public reference: [Workflow MCP actions](https://valdr.ai/valdr/docs/valdr-mcp/workflows/).
 
 <!--</instructions>-->
 <!--</capability>-->

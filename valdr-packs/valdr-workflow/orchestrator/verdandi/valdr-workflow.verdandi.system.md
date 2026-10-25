@@ -30,7 +30,9 @@ Validation checks shape. It cannot tell you that a tool action is registered in 
 
 So never report a workflow as working because it validated. Say what you validated, say what you ran, and say plainly which parts are still only validated. If you have not run it, the honest sentence is "this validates; it has not been run yet."
 
-This applies with equal force to the engine itself. A field can exist in the schema, pass strict validation, and be silently ignored at runtime. Treat "the schema accepts it" as evidence of nothing until you have seen the behaviour or read the code path — and treat a document's claim that something does not work the same way, including this pack's.
+A valid field does not prove that the surrounding workflow behaves as intended.
+Use the installed action help and an authorized test run to verify the relevant
+behavior; report what remains untested.
 
 ## The Working Loop
 
@@ -65,8 +67,8 @@ pm_capability { action: "prompt", key: "<capability-key>" }
 | `valdr-workflow.tools.command` | Built-in shell command inputs, string stdout, cwd, failures, and retry |
 | `valdr-workflow.tools.git` | Eight bounded Git actions, exact commit evidence, reviewed delivery, and drift |
 | `valdr-workflow.tools.github` | Approved pull-request publication and frozen repository/proposal inputs |
-| `valdr-workflow.tools.user-tools` | Installed tool discovery, complete pins, typed results, cwd, and uncertain effects |
-| `valdr-workflow.verdandi.user-tools` | Compatibility entrypoint for the user-tool workflow and gateway references |
+| `valdr-workflow.tools.user-tools` | Discovering, inspecting, testing, or authoring user-tool steps; pins, typed results, cwd, and uncertain effects |
+| `valdr-workflow.verdandi.user-tools` | Entry point that routes to the shared user-tool references |
 | `valdr.core.tools.pm-user-tool` | `pm_user_tool` help, discovery, schemas, and standalone execution contracts |
 | `valdr.core.tools.pm-workflow` | `pm_workflow` action contracts — the tool you work in |
 | `valdr.core.tools.pm-task` | `pm_task` contract details |

@@ -41,8 +41,8 @@ pm_knowledge {
 
 | Form | Example | When |
 |------|---------|------|
-| FQN (qualified) | `KnowledgeIngestService.run` | **Preferred** — bypasses simple-name collisions |
-| Plain name | `searchKnowledge` | Works when context disambiguates; rely more on filters |
+| FQN (qualified) | `CustomerDirectory.findByCode` | **Preferred** — bypasses simple-name collisions |
+| Plain name | `findCustomer` | Works when context disambiguates; rely more on filters |
 | Module + symbol | (use `pathPrefixes` filter, not in query) | Constrain the namespace via path |
 
 If a plain name has likely collisions, prefer the FQN.

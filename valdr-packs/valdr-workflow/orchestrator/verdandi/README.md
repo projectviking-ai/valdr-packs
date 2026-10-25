@@ -28,10 +28,9 @@ them one run at a time.
 | `valdr-workflow.verdandi.user-tools` | workflow | yes | Calling imported local user tools from a step |
 | `valdr.core.tools.*` | integration | yes | Tool contracts pulled in on demand |
 
-`hazards` and `mcp-access` are deliberately **not** hot-load. `buildSystemPrompt`
-filters hot-load capabilities out of the system prompt, and these two are the
-rules that stop Verdandi shipping something that validates but cannot run — they
-have to be present on every turn.
+`hazards` and `mcp-access` are deliberately **not** hot-load. They must be
+available on every turn, including before Verdandi chooses which detailed
+guidance to load, so workflow hazards and MCP access rules always apply.
 
 ## The rule it is built around
 

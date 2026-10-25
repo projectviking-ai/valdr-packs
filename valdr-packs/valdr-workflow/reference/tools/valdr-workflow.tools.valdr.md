@@ -9,7 +9,7 @@ Author supported Valdr actions as workflow steps with explicit inputs, recorded 
 
 ## Available tool families
 
-The aggregate Valdr adapter exposes catalog-approved actions from these families.
+Workflows support catalog-approved actions from these Valdr tool families.
 Availability and fields depend on the installed runtime; this table is a map to
 contracts, not a promise that every direct call is executable in a workflow.
 
@@ -64,30 +64,31 @@ action accepts `actorHandle`; adding a human's name does not grant their
 authority. Catalog exposure does not bypass action permissions, review gates,
 trusted-operator restrictions, idempotency, or status-transition validation.
 
-For example, after a genuinely completed executor step:
+For example, after an `executor` session step has collected its own completion
+verdict and `require_executor_completed` has accepted that verdict:
 
 ```yaml
 - key: mark_in_review
   name: Submit task for review
   kind: tool
-  needs: [await_executor]
+  needs: [require_executor_completed]
   tool: { id: pm_task, action: change_status }
   inputs:
     taskKey: "${workflow.inputs.taskKey}"
     to: in_review
-    actorHandle: "${runtime.actor}"
+    actorHandle: "${runtime.actorHandle}"
   outputs:
     status: "$.normalized.task.status"
 ```
 
-This is a graph fragment, not a standalone runnable definition. Define and gate
-`await_executor` according to its actual completion contract. A handler may
-reject the transition if the task is not eligible.
+This is a graph fragment, not a standalone runnable definition. Put the receipt
+gate on `executor` itself, then use a condition step to require its successful
+outcome before changing status. Valdr rejects an ineligible task transition.
 
 ## Results and business decisions
 
 Prefer the workflow adapter's `$.normalized` fields, but use `$.raw` when the
-required handler data is not included in normalization. Downstream expressions
+required action data is not included in normalization. Downstream expressions
 use declared outputs, for example
 `${steps.load_task.outputs.status}`. Direct MCP `data` envelopes and session gate
 JSON are separate contracts; do not copy their paths without checking the
@@ -106,7 +107,7 @@ workflow result picker or a recorded run.
 | `vmp/get_plan` persisted specification | `$.raw.spec` | Full specification with requirements |
 | `vmp/get_plan` persisted tasks | `$.raw.tasks` | Full records including IDs, keys, titles, summaries, acceptance and requirement links |
 
-Normalization is action-specific, not a copy of every handler field. For VMP
+Normalization is action-specific, not a copy of every action result field. For VMP
 readback, use `$.raw` when one downstream receipt needs the complete
 `{ plan, spec, tasks }` result; `$.normalized` contains only the `plan` summary.
 Do not look for full task records at `$.normalized.tasks` or treat `taskKeys` as
@@ -197,7 +198,7 @@ ones approved.
    unavailable actions, and invalid expressions.
 3. When execution is authorized, exercise the intended success and rejection
    paths against disposable subjects and inspect persisted step results.
-4. Report validation separately from execution. Handler behavior and authority
+4. Report validation separately from execution. Action permissions and authority
    constraints still apply after schema validation succeeds.
 
 `test_definition` creates a durable real run even though the definition is not

@@ -49,7 +49,7 @@ a hash or assuming direct discovery supplies a full pin.
 
 | Field in the step's `tool` block | Required value |
 | --- | --- |
-| `id` | Actual installed `<pack>.user.<name>` ID; legacy `user.<name>` only when actually installed |
+| `id` | Actual installed tool ID, such as `<pack>.user.<name>` |
 | `action` | Exact selected manifest action ID |
 | `revision` | Exact installed revision label |
 | `contentHash` | Full selected `sha256:` content hash |

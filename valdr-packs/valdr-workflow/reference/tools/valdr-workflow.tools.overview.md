@@ -15,9 +15,9 @@ Choose the workflow step and executable tool that fit the requested outcome, the
 | Agent execution or continuation | `session` step with a supported launch/input action and an explicit completion gate | `valdr-workflow.verdandi.authoring`, `valdr.core.tools.pm-session` |
 | Independent review | `review` step with the correct reviewer and verdict contract | `valdr-workflow.verdandi.authoring`, `valdr.core.tools.pm-review` |
 | Reusable workflow, fan-out, or child result | Version-pinned `subworkflow` step | `valdr-workflow.verdandi.authoring` |
-| Human approval or Questions answer | `human_gate`; use its supported outcomes and authorized input path | `valdr-workflow.verdandi.authoring`, `valdr-workflow.verdandi.operating` |
+| Human approval or Questions answer | `human_gate`; use its supported outcomes and authorized input path | `valdr-workflow.steps.human-gate` |
 | External callback, including custom outcomes | `await_condition` with `workflow_input`, authorized handles, and the intended source binding | `valdr-workflow.verdandi.authoring`, `valdr-workflow.verdandi.operating` |
-| Wait for a supported runtime condition | `await_condition` | `valdr-workflow.verdandi.authoring` |
+| Join a deliberately detached session turn | `await_condition` with the exact session and turn bindings; no receipt gate | `valdr-workflow.verdandi.authoring` |
 | Read or mutate Valdr data | `kind: tool` with an available Valdr tool/action | `valdr-workflow.tools.valdr` |
 | Execute a trusted shell command | `kind: tool`, `command/run` | `valdr-workflow.tools.command` |
 | Inspect or deliver reviewed repository work | `kind: tool`, `git/<action>` | `valdr-workflow.tools.git` |
@@ -61,7 +61,7 @@ capability named `command` does not make the built-in action unavailable.
     status: "$.normalized.task.status"
 ```
 
-- `tool.id` and `tool.action` select the implementation. Put action-specific
+- `tool.id` and `tool.action` select the action. Put action-specific
   arguments in `inputs`; declare its actual required fields.
 - `outputs` map the recorded action result. Downstream references use
   `${steps.load_task.outputs.status}`. Use the exact documented selector and type.

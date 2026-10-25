@@ -9,13 +9,13 @@
 | `valdr-workflow.steps.human-gate` | workflow | yes | Human approvals, Questions, answer propagation, and clarification budget guards |
 | `valdr-workflow.verdandi.operating` | workflow | yes | Starting, re-running, cancelling, inspecting |
 | `valdr-workflow.verdandi.debugging` | workflow | yes | A run is blocked, failed, or stuck |
-| `valdr-workflow.verdandi.user-tools` | workflow | yes | Discovering, inspecting, directly testing, or authoring a user-tool step |
+| `valdr-workflow.verdandi.user-tools` | workflow | yes | Entry point that routes to the shared user-tool references |
 | `valdr-workflow.tools.overview` | integration | yes | Workflow and tool selection, result envelopes, control-flow decisions |
 | `valdr-workflow.tools.valdr` | integration | yes | Valdr actions inside workflow steps |
 | `valdr-workflow.tools.command` | integration | yes | Command inputs, text stdout, execution context, recovery |
 | `valdr-workflow.tools.git` | integration | yes | Bounded Git actions, frozen commit evidence, drift |
 | `valdr-workflow.tools.github` | integration | yes | Approved pull-request publication |
-| `valdr-workflow.tools.user-tools` | integration | yes | Installed action pins, typed data, runtime and uncertain effects |
+| `valdr-workflow.tools.user-tools` | integration | yes | Discovering, inspecting, testing, or authoring user-tool steps; pins, typed data, and uncertain effects |
 | `valdr.core.tools.pm-user-tool` | integration | yes | Gateway help, discovery, schemas, and standalone execution |
 | `valdr.core.tools.pm-workflow` | integration | yes | `pm_workflow` action contracts |
 | `valdr.core.tools.pm-task` | integration | yes | `pm_task` contract detail |

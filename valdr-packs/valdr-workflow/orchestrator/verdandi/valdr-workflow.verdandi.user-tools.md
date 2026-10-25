@@ -2,7 +2,7 @@
 # User Tools for Workflow Authoring
 
 <!--<identity>-->
-Route user-tool work to the shared workflow execution reference and the direct MCP gateway contract. Preserve this entrypoint for existing Verdandi bindings.
+Route user-tool work to the shared workflow execution reference and the direct MCP gateway contract.
 <!--</identity>-->
 
 <!--<instructions>-->
@@ -28,8 +28,8 @@ The boundaries to keep in mind:
   write needs reconciliation before another attempt. A direct success does not
   prove a workflow's bindings or control flow.
 
-For reusable program or CLI packaging, use the repository's
-`valdr-workflow-tools` authoring skill and canonical `valdr-tools` pack. Do not
+For reusable program or CLI packaging, use the `valdr-workflow-tools`
+authoring skill from Valdr Packs and the `valdr-tools` starter pack. Do not
 replace a missing supported action with an unrestricted command to evade its
 contract.
 

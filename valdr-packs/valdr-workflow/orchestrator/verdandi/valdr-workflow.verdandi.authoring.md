@@ -48,7 +48,7 @@ Every step requires `key`, `name`, and `kind`; do not omit `name`. Optional fiel
 
 **A `session` step collects its own agent verdict.** Use `await_condition` only for external callbacks or detached joins; `gates` are forbidden. External Await requires **both** `expected` and `authorizedHandles`. An exact detached Await binds `sourceSessionUlid` and `sourceTurnClientRequestId`, derives authority, and forbids authored `authorizedHandles`.
 
-There is no child-run join. The `child_run_terminal`, `child_run_completed`, and `child_runs_settled` wait kinds are non-normative and rejected under strict validation. A `subworkflow` step already blocks on its child, and `forEach` already joins its whole fan-out.
+There is no separate child-run join. A `subworkflow` step already blocks on its child, and `forEach` already joins its whole fan-out.
 
 ## How A Step Waits
 
@@ -57,11 +57,8 @@ Waiting is a property of the step that causes the wait, not a step of its own. T
 1. A one-shot **launch** step starts and waits on its first turn. Put the prompt, completion wait, gate, and outputs on that one card.
 2. A **session input** step is only a later turn on a deliberately create-only reusable session; it carries that later turn's prompt, wait, receipt gate, and result outputs.
 
-For substantial artifacts, prompt the session to save useful stages: structure
-and requirements first, then task sections and validation fixes. Partial saves
-are progress, not acceptance. Reserve the final completion receipt and artifact
-hash for finished, validated content. Prefer substantive saved work to empty
-heartbeat messages.
+For substantial artifacts, ask the session to save intermediate work and validate
+the completed document before returning its final completion receipt.
 
 ```yaml
 - key: decide
@@ -94,7 +91,7 @@ heartbeat messages.
 
 **The one-shot turn's work goes in `session.prompt` on the launch step.** Use `session.action: input` only for a later turn on a deliberately reusable session. Workflow-owned input is queued; `delivery: steer` is an ad-hoc `pm_session input` option and is not supported in workflow session steps.
 
-**`waitsFor.authorizedHandles` and `waitsFor.sourceSessionUlid` are runtime-owned.** The runtime freezes both from the exact target session. Authoring either on a session input step is an error. Separately, a session-input receipt gate must bind `gates[].source.sessionUlid` to that same `session.sessionUlid`; only a start-and-wait launch can infer the gate source.
+**Do not author `waitsFor.authorizedHandles` or `waitsFor.sourceSessionUlid` on a session input step.** Valdr binds the wait to the target session. Separately, a session-input receipt gate must bind `gates[].source.sessionUlid` to that same `session.sessionUlid`; only a start-and-wait launch can infer the gate source.
 
 **A gate requires `waitsFor.expected`.** Declaring a `session_output` gate without expected outcomes is an error.
 
@@ -118,7 +115,7 @@ tool step before their values authorize further work.
 
 | Shape | Behaviour |
 |---|---|
-| `waitsFor: { expected: [completed] }`, no gate | Canonical start-and-wait completion; omission is legacy action-specific behavior, not new authoring |
+| `waitsFor: { expected: [completed] }`, no gate | Explicit start-and-wait completion |
 | `waitsFor` with **one** expected outcome, no gate | Waits for the turn; completes with that outcome |
 | `waitsFor` with expected outcomes **and** a `session_output` gate | Parses the receipt and maps it to one of them |
 | `detached: true` | Dispatches the turn and completes immediately; creates no wait |
@@ -137,8 +134,8 @@ A review-backed wait does not read the agent's final message — it follows the 
 
 Missing either binding below blocks the run:
 
-- **The `review` launch step must bind `reviewId`, `assignmentId`, and `sourceSessionUlid`** from a preceding `pm_review/start` and the implementation session. Without them the runtime cannot correlate publication evidence.
-- **The reviewer publishes using the trusted first-turn correlation the runtime supplies.** Do not author a replacement client request ID in the workflow prompt.
+- **The `review` launch step must bind `reviewId`, `assignmentId`, and `sourceSessionUlid`** from a preceding `pm_review/start` and the implementation session. All three bindings must identify the review and work being reviewed.
+- **Let the review step supply the reviewer’s publication context.** Do not replace it with invented request IDs in the prompt.
 
 ## Human Gates
 
@@ -176,13 +173,13 @@ Roots available:
 - `${steps.<key>.outputs.<name>}` — upstream steps only
 - `${runtime.<field>}` — `runUlid`, `rootRunUlid`, `taskKey`, `projectKey`, `contextRef`, `stepKey`, `attempt`, `startedAt`, `clientRequestId`, `actor`, `actorHandle`, `loop`
 
-`runtime.startedAt` is the run's start, deliberately not a live clock: a wall-clock value would differ across attempts and turn a safe retry into a claim mismatch.
+`runtime.startedAt` is the run's fixed start time, not a live clock. Use it when later steps need the same timestamp across attempts.
 
-Selectors on step outputs read the result: `$.raw` is exactly what the handler returned, `$.normalized` is the contract-validated shape, and `$.outputs` reads the step's own declared outputs.
+Selectors on step outputs read the result: `$.raw` is the action result, `$.normalized` is the contract-validated shape, and `$.outputs` reads the step's own declared outputs.
 
 ## Conditions And Routing
 
-A `condition` has no success branch. On a match it completes. On a non-match it does whatever `onFailure` says — and with no `onFailure` at all it also completes, making the condition a no-op. The match flag is recorded in `gateEvidenceJson` but is never exposed as an output, so author the observed value yourself if a later step needs it.
+A `condition` has no success branch. On a match it completes. On a non-match it does whatever `onFailure` says — and with no `onFailure` at all it also completes, making the condition a no-op. Declare the observed value and a clear reason in `outputs` when later steps or the operator need them.
 
 ```yaml
 - key: gate_thing
@@ -264,7 +261,7 @@ User-tool structured data is under `$.normalized.data`; Valdr actions expose
 action-specific fields. Preserve types with exact references, not interpolation.
 
 Strict validation checks the graph and action inputs; it cannot prove host
-prerequisites, handler authority, or business success. Guard on the actual result
+prerequisites, action permissions, or business success. Guard on the actual result
 before permitting downstream effects and respect the user's execution scope.
 
 ## Subworkflows
@@ -318,15 +315,13 @@ Fan-out joins on its own: the step completes when every child has, and `$.normal
 
 For repetition that is *not* over a known list — retrying a judgement until it passes — use a bounded `loop_back` corridor instead, where each pass re-derives what is next from durable state, so the workflow holds no cursor and an interrupted run resumes correctly.
 
-## Declared But Not Executable
+## Use Only Documented Fields
 
-These validate under permissive authoring and are rejected as non-normative under strict validation, because the production executor does not run them:
+Strict validation rejects fields, wait kinds, and step kinds outside the documented workflow schema. Use the step kinds in the table above and the fields documented here or in the installed action help.
 
-`onChildFailure` · `resolveExisting` · the `child_run_terminal` / `child_run_completed` / `child_runs_settled` wait kinds · the `comment` and `group` step kinds · inline `retry.backoff` and `retry.retryOn`
+**Do not build behaviour on an undocumented field**, even when a similar workflow engine supports it.
 
-**Do not build behaviour on them.**
-
-`onFailure: { action: continue }` is different and stricter: it is a hard error in **every** mode, and `allowAdvancedKinds` does not admit it. The supported set is `block`, `fail`, `loop_back`, and nothing else.
+The supported `onFailure` actions are `block`, `fail`, and `loop_back`, and nothing else. `onFailure: { action: continue }` is always rejected.
 
 ## Before You Call It Done
 
@@ -340,7 +335,7 @@ These validate under permissive authoring and are rejected as non-normative unde
 
 ## Local user tools (Valdr 0.3.3+)
 
-A step that calls an imported `<pack>.user.<name>` tool: hot-load `valdr-workflow.verdandi.user-tools` before writing it.
+A step that calls an imported `<pack>.user.<name>` tool: hot-load `valdr-workflow.tools.user-tools` before writing it.
 
 <!--</instructions>-->
 <!--</capability>-->

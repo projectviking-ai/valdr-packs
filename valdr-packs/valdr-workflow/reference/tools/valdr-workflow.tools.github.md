@@ -50,7 +50,8 @@ The action neither approves the proposal nor pushes the branch. The official
 `valdr-workflow.pull-request.create` workflow supplies the complete sequence;
 inspect its installed exact version before reusing it. Hot-load
 `valdr-workflow.tools.git` for the Git contracts and
-`valdr-workflow.verdandi.authoring` for gates and dependencies.
+`valdr-workflow.steps.human-gate` for the proposal gate and its approved output
+selectors, and `valdr-workflow.verdandi.authoring` for dependencies.
 
 ## Publication fragment
 
@@ -90,7 +91,7 @@ depend on `create_pr` and reference its declared outputs.
 
 ## Existing requests, failure, and recovery
 
-The handler may adopt a matching existing same-repository pull request.
+The action may adopt a matching existing same-repository pull request.
 `existing` is not permission to adopt arbitrary work. A changed remote, head
 commit, or proposal blocks publication instead of silently changing what was
 approved. Do not regenerate proposal fields after the approval gate or omit

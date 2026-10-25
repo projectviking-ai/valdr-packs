@@ -1,7 +1,7 @@
 # Python Task Agent (`python-task-agent`)
 
 > **Type:** Dumb Agent (Code Executor)
-> **Pack:** `valdr-internal`
+> **Pack:** `valdr`
 > **Handle:** `@python-task-agent`
 
 ## Overview
@@ -12,11 +12,11 @@ A language-specialized task executor for Python codebases. It prioritizes Python
 
 | Capability | Role | Description |
 |------------|------|-------------|
-| `valdr.internal.agents.python.python-task-agent.system` | core | Main persona and execution workflow |
-| `valdr.internal.agents.python.build` | constraints | Build/packaging/env guidance |
-| `valdr.internal.agents.python.code.rules` | constraints | Python style and typing conventions |
-| `valdr.internal.agents.python.design.solid` | workflow | SOLID-inspired Python architecture guidance |
-| `valdr.internal.agents.python.testing` | workflow | Pytest fixtures/parametrize/mock patterns |
+| `valdr.agents.python.python-task-agent.system` | core | Main persona and execution workflow |
+| `valdr.agents.python.build` | constraints | Build/packaging/env guidance |
+| `valdr.agents.python.code.rules` | constraints | Python style and typing conventions |
+| `valdr.agents.python.design.solid` | workflow | SOLID-inspired Python architecture guidance |
+| `valdr.agents.python.testing` | workflow | Pytest fixtures/parametrize/mock patterns |
 
 ## Language Focus
 

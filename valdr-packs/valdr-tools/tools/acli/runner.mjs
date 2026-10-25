@@ -10,7 +10,7 @@ const environment = {
   "NO_COLOR": "1"
 };
 const failureDiagnostic = {"actionPathPrefix":["jira"],"args":["jira","auth","status"]};
-// Generated from Valdr packages/util/src/redaction.ts; refresh via the CLI generator.
+// Shared redaction rules embedded in the packaged user-tool runners.
 const SENSITIVE_VALUE_PATTERN = /\b(?:sk|pk|rk)[_-][a-z0-9._-]{16,}|\b(?:gh[pousr]|github_pat|xox[baprs]?)[_-][a-z0-9._-]{12,}|\b(?:ctx7|ya29)[a-z0-9._-]{12,}/gi;
 const SENSITIVE_ASSIGNMENT_PATTERN = /(\b[\w.-]*(?:api[_-]?key|access[_-]?key|private[_-]?key|token|secret|authorization|password|credential)[\w.-]*\b\s*[:=]\s*)(?:"[^"]*"|'[^']*'|bearer\s+[^\s,;]+|[^\s,;]+)/gi;
 const BEARER_VALUE_PATTERN = /(\bbearer\s+)[^\s,;]+/gi;

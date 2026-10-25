@@ -14,9 +14,8 @@ capabilities:
   - key: valdr-workflow.verdandi.system
     role: core
 
-  # NOT hot-load. buildSystemPrompt filters hot-load capabilities out of the
-  # system prompt, and these two are the rules that stop Verdandi shipping a
-  # workflow that validates but cannot run. They must always be present.
+  # Always loaded: workflow hazards and MCP access rules are required on every
+  # turn, including before Verdandi chooses which detailed guidance to load.
   - key: valdr-workflow.verdandi.hazards
     role: constraints
   - key: valdr-workflow.base.mcp-access

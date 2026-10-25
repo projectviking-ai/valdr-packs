@@ -1,11 +1,12 @@
 SHELL := /bin/sh
 
 VALDR_BIN ?= valdr
+PACK_VALDR_BIN ?= $(VALDR_BIN)
 VALDR_WORKFLOW_CLI_VERSION := $(strip $(shell cat VALDR_WORKFLOW_CLI_VERSION))
 
-SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/discover-cli.test.mjs
+SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/discover-cli.test.mjs scripts/sync-skills.test.mjs scripts/human-gate-reference.test.mjs
 
-.PHONY: validate-user-workflow-tools build-valdr-tools test-user-workflow-tools help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack check-valdr-workflow-cli validate-valdr-workflow test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-all
+.PHONY: test-evals-integration check-evals-readiness test-evals check-evals validate-user-workflow-tools build-valdr-tools test-user-workflow-tools help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack check-valdr-workflow-cli validate-valdr-workflow test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-all
 
 help:
 	@echo "Targets:"
@@ -19,8 +20,12 @@ help:
 	@echo "  validate-valdr-pack  Stage and validate the Raider/Vanguard/Sovereign pack roots"
 	@echo "  check-valdr-workflow-cli Verify the pinned Valdr CLI version"
 	@echo "  validate-valdr-workflow Validate the valdr-workflow pack with the pinned CLI"
-	@echo "  test-scripts         Run the repository script test suite"
-	@echo "  ci-validate          Run pack validation plus script tests"
+	@echo "  test-scripts         Run the repository script and evaluation test suites"
+	@echo "  test-evals           Test the agent/orchestrator evaluation harness"
+	@echo "  test-evals-integration Run workflow and task-repair checks with the installed Valdr CLI (no model calls)"
+	@echo "  check-evals-readiness Run offline tests, pinned-pack validation and installed Valdr CLI checks"
+	@echo "  check-evals          Check installed CLI prerequisites and both fixture suites (no model calls)"
+	@echo "  ci-validate          Run pack validation, script tests and evaluation harness tests"
 	@echo "  generate-valdr-pack  Run the generic pack archive generator"
 	@echo "  build-valdr-raider   Build the Raider valdr tier archive"
 	@echo "  build-valdr-vanguard Build the Vanguard valdr tier archive"
@@ -30,6 +35,10 @@ help:
 	@echo "  build-valdr-tools    Build the standalone, deterministic user-tools archive"
 	@echo "  test-user-workflow-tools Test starters and pack validation"
 	@echo "  build-valdr-all      Build Raider, Vanguard, Sovereign, Workflow, and Tools archives"
+	@echo ""
+	@echo "Variables:"
+	@echo "  VALDR_BIN           Installed Valdr CLI executable (default: valdr)"
+	@echo "  PACK_VALDR_BIN      Pinned CLI for pack checks in check-evals-readiness (default: VALDR_BIN)"
 
 sync-all: sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini
 	@echo ""
@@ -40,43 +49,31 @@ sync-skills-all: sync-all
 
 sync-skills:
 	@set -e; \
-	mkdir -p .agents/skills .claude/skills .gemini/skills; \
 	for dest in .agents/skills .claude/skills .gemini/skills; do \
-		if ls -d "$$dest"/valdr-* >/dev/null 2>&1; then \
-			rm -rf "$$dest"/valdr-*; \
-		fi; \
+		mkdir -p "$$dest"; \
+		for source in skills/valdr-*; do \
+			[ -d "$$source" ] || continue; \
+			rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+		done; \
 	done
-	@if ls -d skills/valdr-* >/dev/null 2>&1; then \
-		rsync -a skills/valdr-* .agents/skills/; \
-		rsync -a skills/valdr-* .claude/skills/; \
-		rsync -a skills/valdr-* .gemini/skills/; \
-	fi
 
 sync-skills-agent:
 	@set -e; \
 	dest="$(HOME)/.agents/skills"; \
 	mkdir -p "$$dest"; \
-	if ls -d "$$dest"/valdr-* >/dev/null 2>&1; then \
-		rm -rf "$$dest"/valdr-*; \
-	fi; \
-	if ls -d skills/valdr-* >/dev/null 2>&1; then \
-		rsync -a skills/valdr-* "$$dest"/; \
-	else \
-		echo "No skills/valdr-* found; nothing to sync."; \
-	fi
+	for source in skills/valdr-*; do \
+		[ -d "$$source" ] || continue; \
+		rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+	done
 
 sync-skills-claude:
 	@set -e; \
 	dest="$(HOME)/.claude/skills"; \
 	mkdir -p "$$dest"; \
-	if ls -d "$$dest"/valdr-* >/dev/null 2>&1; then \
-		rm -rf "$$dest"/valdr-*; \
-	fi; \
-	if ls -d skills/valdr-* >/dev/null 2>&1; then \
-		rsync -a skills/valdr-* "$$dest"/; \
-	else \
-		echo "No skills/valdr-* found; nothing to sync."; \
-	fi
+	for source in skills/valdr-*; do \
+		[ -d "$$source" ] || continue; \
+		rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+	done
 
 sync-skills-codex: sync-skills-agent
 	@# Codex now uses ~/.agents/skills/
@@ -85,14 +82,10 @@ sync-skills-gemini:
 	@set -e; \
 	dest="$(HOME)/.gemini/skills"; \
 	mkdir -p "$$dest"; \
-	if ls -d "$$dest"/valdr-* >/dev/null 2>&1; then \
-		rm -rf "$$dest"/valdr-*; \
-	fi; \
-	if ls -d skills/valdr-* >/dev/null 2>&1; then \
-		rsync -a skills/valdr-* "$$dest"/; \
-	else \
-		echo "No skills/valdr-* found; nothing to sync."; \
-	fi
+	for source in skills/valdr-*; do \
+		[ -d "$$source" ] || continue; \
+		rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+	done
 
 validate-valdr-pack:
 	@node scripts/validate-valdr-pack.mjs
@@ -111,6 +104,14 @@ validate-valdr-workflow: check-valdr-workflow-cli
 test-scripts:
 	@bun scripts/generate-user-workflow-cli-tools.mjs --check
 	@$(SCRIPT_TESTS)
+	@$(MAKE) test-evals
+
+test-evals:
+	@bun test --timeout 30000 evals/tests
+
+check-evals:
+	@bun evals/run.mjs doctor workflow-authoring --json --valdr-bin "$(VALDR_BIN)"
+	@bun evals/run.mjs doctor task-repair --json --valdr-bin "$(VALDR_BIN)"
 
 ci-validate: validate-valdr-pack test-scripts
 
@@ -142,3 +143,14 @@ build-valdr-tools: validate-user-workflow-tools
 test-user-workflow-tools: validate-user-workflow-tools
 	@bun scripts/generate-user-workflow-cli-tools.mjs --check
 	@VALDR_BIN="$(VALDR_BIN)" node --test scripts/user-workflow-tools.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/user-workflow-pack.test.mjs
+
+# Evaluations use the installed Valdr CLI; pack validation uses the exact release pin.
+test-evals-integration:
+	@bun evals/tests/integration/workflow-binary.mjs "$(VALDR_BIN)"
+	@bun evals/tests/integration/task-repair-binary.mjs "$(VALDR_BIN)"
+	@bun evals/tests/integration/author-scope.mjs
+
+check-evals-readiness:
+	@$(MAKE) ci-validate
+	@$(MAKE) validate-valdr-workflow validate-user-workflow-tools VALDR_BIN="$(PACK_VALDR_BIN)"
+	@$(MAKE) check-evals test-evals-integration VALDR_BIN="$(VALDR_BIN)"
