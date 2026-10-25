@@ -44,6 +44,18 @@ Pull requests start as drafts unless `initialDraft` is false. The writer can dra
 
 Use the exact workflow versions declared in the definitions shipped with your selected pack. Validation must report zero unresolved workflow references before release. Empty executor, reviewer, and preset fallbacks deliberately block when routing returns unknown.
 
+## Verdandi authoring references
+
+The [workflow reference library](reference/README.md) provides an overview plus
+focused capabilities for built-in Valdr actions, Command, Git, GitHub, and
+installed user tools. Verdandi loads these as needed alongside its workflow
+authoring, operating, and debugging references. Each tool guide documents inputs,
+result mappings, execution effects, prerequisites, and recovery limits.
+
+See the [capability matrix](orchestrator/verdandi/ORCHESTRATOR_CAPABILITY_MATRIX.md)
+for bindings and the [evaluation harness](../../evals/README.md) for isolated
+workflow-authoring and Task Repairer suites through the installed `valdr` CLI.
+
 ## Validate from source
 
 Set `VALDR_BIN` to the exact compatible CLI, then run:

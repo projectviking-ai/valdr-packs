@@ -7,11 +7,11 @@ Proving, saving, starting, watching, re-running, and stopping workflow runs — 
 
 <!--<instructions>-->
 
-## Before Anything Else: Which Server?
+## Confirm the connected installation
 
-`pm_health` tells you which process you are talking to and when it started. If workflow source changed after that, the server is stale and its answers about contracts, runtime fields, and validation are unreliable — in both directions.
-
-Do this first when a result surprises you. It is cheap, and it prevents the entire class of "the code says X but the tool says Y" investigations.
+When a result contradicts the documentation, use `pm_health` to confirm the
+connected Valdr version and load scoped action help. Check the installed workflow
+and tool versions before changing the definition.
 
 ## Validate, Then Prove, Then Save
 
@@ -54,7 +54,8 @@ pm_workflow {
 
 ## One Active Run Per Workflow Per Subject
 
-The uniqueness constraint is a **partial** index covering `pending`, `running`, `waiting`, and `blocked`. So:
+A workflow may have only one run in `pending`, `running`, `waiting`, or `blocked`
+for the same subject:
 
 - A `completed`, `failed`, or `cancelled` run **releases** the context. Just `start` again — no cancel needed.
 - A `blocked` run does **not**. It still holds the context, but an eligible blocked step can move the same run back to `running` through `retry_step`.
@@ -66,7 +67,9 @@ pm_workflow { action: "get_run", runUlid, includeSteps: true }
 pm_workflow { action: "retry_step", runUlid, stepKey, expectedAttempt, clientRequestId, reason }
 ```
 
-Use `retryEligibilityByStepKey[stepKey]` from the first call; it records whether retry is allowed and the latest attempt to pass as `expectedAttempt`. Retrying without changing the failed input or condition simply blocks again.
+Check the returned retry eligibility and use the latest eligible attempt as
+`expectedAttempt`. Retrying without changing the failed input or condition
+simply blocks again.
 
 When a fresh whole run is intended, `cancel` releases a blocked or still-active context and `rerun` starts again from the same source. A blocked run must be cancelled before `rerun`; completed, failed, and cancelled runs are already rerun-eligible. Neither action needs elevated identity, unlike deleting a run.
 
@@ -81,22 +84,23 @@ pm_workflow { action: "events", runUlid, afterSeq, eventTypes }
 pm_workflow { action: "list_runs", workflowKey, taskKey, status }
 ```
 
-`includeSteps`, `includeWaits`, and `includeChildren` all default to **false**. The flagless call is the cheap status poll — just `run` and `loopProgress[]`, enough to know whether anything moved. Pass the flags for deep inspection, when you actually need step detail, wait records, or child runs.
+`get_run` is compact by default. Use it for polling; request detail only when
+investigating a change or stop:
 
-`get_run` is the primary instrument. Read in this order:
+1. Read the run's current status and stopping step.
+2. Inspect its declared results and any terminal error.
+3. Request `includeSteps: true` for step outcomes and recovery information.
+4. Request `includeWaits: true` for outstanding decisions or callbacks.
+5. Request `includeChildren: true` for child workflow outcomes.
+6. Read loop progress when the workflow contains a bounded review corridor.
 
-1. `run.status` and `run.currentStepKey` — where it is.
-2. `run.outputJson` — on a terminal run, the envelope with status, partial evidence, and error.
-3. `steps[]` — each with `status`, `outputJson`, `errorJson`, and `gateEvidenceJson`.
-4. `waits[]` — what it is waiting for and whether that wait resolved.
-5. `children` — an object, not an array: `children.runs[]` for the child records, `children.byStatus` for the counts.
-6. `loopProgress[]` — returned on every call, one entry per loop corridor: `currentPass`, `maxPasses`, `completedLoopBacks`, `lastRoute`. The only place that answers "how many times has this gone round".
-
-Passing `includeSteps: true` explicitly also returns `attempts` — the full per-attempt history rather than the latest attempt per step. Reach for it when a step has been retried or has looped.
+Request `includeAcceptedInputs: true` only when accepted callback or gate
+evidence is relevant. Avoid logging tokens or sensitive agent output.
 
 `includeDefinition: true` returns the definition the run actually froze, resolved by its own content hash. Use it instead of a second `get` call whenever a diagnosis needs the definition.
 
-`run.dependencyRevisionsJson` records the exact content hash of every child workflow the run froze at start. That is what makes a run reproducible — but it is another opt-in field: pass `includeDependencies: true` to get it. Fetch it before you `rerun`, so you know which frozen revisions the new run will replay.
+Pass `includeDependencies: true` to inspect the child-workflow versions selected
+for the run. Check them before `rerun`, which reuses those versions.
 
 ## Run Statuses
 
@@ -114,19 +118,27 @@ Passing `includeSteps: true` explicitly also returns `attempts` — the full per
 
 ## Driving
 
-A workflow driver advances runs on its own — a run typically moves from `pending` through its steps without you calling `advance`. If a driver is active, do **not** also drive it manually: the same step can execute twice, leaving duplicate sessions.
+Runs normally progress automatically. Poll `get_run` for current status before
+advancing manually. A waiting run needs its expected input, not repeated calls
+to `advance`.
 
-No tool reports driver state. When nothing seems to be happening, poll `get_run` twice about thirty seconds apart and compare `run.updatedAt` and `run.status`. The flagless poll is enough for this — no include flags needed, so the check stays cheap even repeated. Reach for `includeSteps: true` only once you need to see which step statuses moved. If nothing moved and the run is `pending` or `running` — not `waiting` — then nothing is advancing it. Say so, and ask before calling `advance` yourself.
+If a run remains pending or running, inspect step detail and the current action
+help. `advance` performs one ready transition. Use it only when manual progress
+is intended, and stop when the run waits or reaches a terminal state.
 
 ## Waits, Gates, And The Actions You Cannot Take Back
 
 A `waiting` run is parked on a wait record. Waits resolve when their outcome arrives — a session turn finishing, a gated receipt parsing, a human approving, or a child run reaching terminal.
 
-`pm_workflow input` publishes an outcome into a wait. Public input rejects `actor` and `actorHandle` and requires a callback token or trusted identity; it is not a way to bypass a gate.
+`pm_workflow input` records a supported callback outcome for an open
+`await_condition` step using its callback token. Follow the installed input
+contract; it cannot supply a human approval or answer.
 
 **You cannot resolve a human gate.** It needs real human or operator identity. When a run parks on one, report the run ULID, the step key, and the gate's prompt, and tell the user to approve it in the Workflows → Runs console. Then keep watching.
 
-**Three actions need a trusted operator and will refuse you outright**, whatever arguments you pass: `override_wait`, `restore_definition`, and `delete_definition` except in its `preview: true` form. They return `… requires trusted operator identity.` Do not retry them with more parameters — ask a human operator.
+Use Valdr UI for operator decisions and workflow retirement or restoration.
+Through MCP, `delete_definition { preview: true }` previews retirement blockers;
+it does not retire the definition.
 
 `cancel`, `rerun`, `retry_step`, and `delete_run` you *can* call. `delete_run` erases a run tree permanently. Say what you are about to do and why, before you do it.
 

@@ -10,8 +10,7 @@ agent:
     - launcher
     - routing
 capabilities:
-  # Not hot-load: buildSystemPrompt filters hot-load capabilities out of the
-  # system prompt, and the router must never choose without the policy present.
+  # Always loaded: the router must never choose without the policy present.
   - key: valdr-workflow.preset-routing.router.system
     role: core
   - key: valdr-workflow.preset-routing.policy

@@ -56,8 +56,7 @@ workflow:
           keepAliveMs: 0
           sessionIdleCloseMs: 0
         maxRuntimeSeconds: 900
-        # Replaces the builder's default turn instruction, which otherwise tells
-        # the session to IMPLEMENT the task.
+        # Keep this turn focused on sizing the task.
         prompt: |
           Size task ${workflow.inputs.taskKey}.
 

@@ -66,17 +66,17 @@ pm_task {
 **Date:** 2024-01-15
 
 ### Work Completed
-- Added case-insensitive task key lookups
+- Added case-insensitive customer code lookups
 
 ### Files Modified
-- `tools/pm-mcp/src/services/task-service.ts` — normalize keys in lookup functions
+- `src/services/customer-service.ts` — normalize customer codes in lookup functions
 
 ### Validation
 - Tests: passed (47 tests)
 - Lint: passed
 
 ### Notes
-Also affects `pm_review` lookups via shared service layer.
+Verified existing customer records remain accessible by their original codes.
 ```
 
 ### Too Verbose
@@ -86,7 +86,7 @@ Also affects `pm_review` lookups via shared service layer.
 **Date:** 2024-01-15
 
 ### Work Completed
-- I implemented case-insensitive lookups by adding toLowerCase() calls to the getTaskByKey function on line 145 and also to getTaskRowWithParentByKey on line 203...
+- I implemented case-insensitive lookups by adding toLowerCase() calls to the findCustomerByCode function on line 145 and also to listCustomersByCode on line 203...
 ```
 
 <!--</instructions>-->

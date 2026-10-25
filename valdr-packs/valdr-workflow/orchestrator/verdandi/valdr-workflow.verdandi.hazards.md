@@ -2,7 +2,7 @@
 # Workflow Hazards
 
 <!--<identity>-->
-The failure modes that mislead rather than announce themselves. Each one has cost real debugging time. Check for these before believing a result.
+Common workflow authoring and recovery mistakes. Check these before interpreting a result or repeating an action.
 <!--</identity>-->
 
 <!--<instructions>-->
@@ -27,17 +27,13 @@ The one exception is a review-backed wait, which follows the durable PM verdict 
 
 **Rule:** if judgement decides between outcomes, it needs a gate. If the step only has to finish, declare one outcome or none. Check this on every session input step you author, because validation will not.
 
-## 3. The Server You Are Talking To May Be Stale
+## 3. Confirm the Installed Version
 
-A stdio MCP server is spawned once and never reloads. If workflow source changed after it started, it is running old code — and several servers can be alive at once, each a different age.
+A workflow or action available in one installation may differ in another.
 
-The symptoms are contradictory and point away from the cause:
-- a tool action reports "contract is not registered" although it is registered
-- a runtime field reports "unsupported" although it is in the allowlist
-- validation returns errors that are simply false
-- a run validates in one place and fails to execute in another
-
-**Rule:** when a workflow result contradicts what you can read in the source, check the server before you change the definition. `pm_health.startTs` gives you the server's age; compare it against `run.startedAt`, and against the workflow source's modification time **if you have filesystem access** — no MCP tool returns a file mtime. If the server is older than the source, say so and ask for a restart rather than editing a correct definition to satisfy a stale process. If you cannot check the source at all, say you could not rule staleness out; do not imply you did.
+**Rule:** if a result contradicts the documentation, use `pm_health` to confirm
+the connected Valdr version, inspect the installed catalog, and load scoped
+action help. Do not change the definition based on an assumed version.
 
 ## 4. The Schema May Accept What The Runtime Ignores
 
@@ -45,9 +41,11 @@ A field can be declared, pass strict validation, and do nothing.
 
 The live instance: `additionalInstructions` used instead of the first-turn `session.prompt` on a one-shot launch. The complete agent instruction belongs in that prompt; `additionalInstructions` stays additive.
 
-Fields that are declared but **not executable** carry an explicit non-normative diagnostic. Treat that diagnostic as load-bearing, never as noise to suppress. But note that the worst cases carry no diagnostic at all — the field is valid where you put it, it is simply never read.
+Treat unsupported-field diagnostics as a reason to revise the definition.
 
-**Rule:** before relying on a field, confirm the runtime consumes it. If you cannot confirm it, do not build behaviour on it, and tell the user it is unproven rather than assuming. The converse also bites: do not assume a field is dead because a document says so. `forEach` was documented as non-executable while a shipped workflow used it successfully.
+**Rule:** use documented fields and exercise the behavior before relying on it.
+If behavior remains untested, say so. Use the installed action help and shipped
+workflow examples to resolve differences between versions.
 
 ## 5. Agent Verdicts Are Not Deterministic
 
@@ -57,11 +55,13 @@ A gate backed by an agent session can return a different outcome for the same un
 
 ## 6. A Write Step Must Be Safe To Replay
 
-A run can re-execute a step after a crash, a stale claim, or a retry. A tool action is only safe as a step if repeating it converges: it returns the same result, or refuses, rather than producing a second effect.
+A retry or recovery attempt can repeat a step. A write must either return the
+existing result, refuse safely, or otherwise avoid producing a duplicate effect.
+Omitting an authored retry policy is not proof that a write will run only once.
 
-Note that "give the step no `retry`" is **not** a sufficient guard on its own — a stale operation claim can grant a recovery attempt regardless of the authored retry policy.
-
-**Rule:** do not treat an action as replay-safe because its name sounds harmless. Idempotency has to come from the handler's behaviour — a claim it replays, a uniqueness it enforces, or a merge that converges.
+**Rule:** use the action's documented request identity and recovery contract.
+Before repeating an interrupted write, check whether it already took effect.
+Do not infer replay safety from an action's name.
 
 ## 7. Sessions Collide On Identity
 
@@ -73,11 +73,13 @@ Finished sessions do not close immediately: a preset's keep-alive can leave one 
 
 ## 8. A Workflow Runs Once Per Subject
 
-A run's context is derived from its subject, and a workflow may hold only one **active** run per context. The uniqueness constraint is partial: it covers `pending`, `running`, `waiting`, and `blocked` only. A `completed`, `failed`, or `cancelled` run releases the context, so a second start just works.
+A workflow permits one active run per subject. `pending`, `running`, `waiting`,
+and `blocked` runs prevent another start for that subject. A completed, failed,
+or cancelled run permits a new start.
 
 `blocked` is the trap. It still holds the context, so a second start is refused, but an eligible blocked step can be retried in the same run after its cause is fixed.
 
-**Rule:** inspect `get_run` with `includeSteps: true` and use `retryEligibilityByStepKey` before recovery. Retry an eligible failed or blocked step in place after fixing its cause. Cancel and re-run only when a fresh whole run is intended, and do not create a near-duplicate subject to dodge the constraint.
+**Rule:** inspect `get_run` with `includeSteps: true` and check the returned retry eligibility before recovery. Retry an eligible failed or blocked step in place after fixing its cause. Cancel and re-run only when a fresh whole run is intended, and do not create a near-duplicate subject to dodge the constraint.
 
 ## 9. Passing Tests Can Mean Nothing Was Exercised
 
@@ -85,11 +87,14 @@ A change can typecheck and leave a whole suite green while the code it added is 
 
 **Rule:** when you add a behaviour, name the test that exercises it. If there is none, you have not shown the behaviour works, however green the suite is.
 
-## 10. Some Fields Read As Signal And Are Not
+## 10. Retry Eligibility Does Not Explain the Failure
 
-`retryEligibilityByStepKey` is the clearest example. On a condition that blocked because its check did not match, it reports `reasonCode: "eligible"` — the run stopped on a deliberate refusal, and the field cheerfully says you may retry it. Retrying changes nothing; the upstream value will be the same. On a step that completed successfully it reports `step_not_retryable`, which reads like a constraint that bit and is a statement about a step that never needed retrying. The field is describing arithmetic, not a diagnosis.
+A blocked step can be eligible for retry even when its condition correctly
+refused the input. Repeating the same input would produce the same refusal.
 
-**Rule:** before treating a field as evidence, ask what it would say in the healthy case. A field that reads the same whether something went wrong or went exactly to plan is telling you nothing.
+**Rule:** use retry eligibility to choose an allowed recovery action, and use
+the step's errors, outputs, and subject evidence to diagnose the cause. Correct
+the cause before retrying.
 
 ## 11. Identity Belongs To Whoever Acted
 
@@ -98,6 +103,23 @@ Every write carries an actor, and the actor is whoever **performed** the action,
 When you make the call, you are the actor: pass `verdandi`. Pass a human's handle only when you are recording something a human actually did — approving a human gate, for instance. A user asking you to start a run does not make them the actor on every write that run performs.
 
 Never invent an identity, and never register a placeholder to satisfy a required field. If a required actor is missing, that absence is the signal that something was started without one.
+
+## 12. Condition Check Fields Can Validate And Still Do Nothing
+
+Use the exact fields consumed by each check:
+
+| Kind | Required fields | Example |
+|---|---|---|
+| `value_equals` | `value`, `equals` | `{ kind: value_equals, value: "${workflow.inputs.enabled}", equals: true }` |
+| `value_in` | `value`, `allowed` array | `{ kind: value_in, value: "${workflow.inputs.mode}", allowed: [fast, thorough] }` |
+| `array_unique_nonempty_strings` | `value` | `{ kind: array_unique_nonempty_strings, value: "${workflow.inputs.taskKeys}" }` |
+| `array_permutation_equals` | `value`, `expected` | `{ kind: array_permutation_equals, value: "${steps.choose.outputs.order}", expected: "${workflow.inputs.taskKeys}" }` |
+
+For `value_in`, the field is **`allowed`**, never `values`, `options`, or `equals`.
+When a check unexpectedly refuses an allowed value, compare the authored
+operands with the run inputs and upstream outputs. Verify the exact field names
+before changing the graph. Exercise one permitted and one rejected input; a
+validation result alone does not prove either branch.
 
 <!--</instructions>-->
 <!--</capability>-->

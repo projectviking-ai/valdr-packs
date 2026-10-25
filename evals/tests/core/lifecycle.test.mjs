@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import test from 'node:test';
+import { createLifecycle } from '../../core/lifecycle.mjs';
+import { fileURLToPath } from 'node:url';
+import { configureRuntimeEnvironment } from '../runtime-environment.mjs';
+
+test('cancellation aborts work, closes late registrations, and retains failed cleanup', async () => {
+  const lifecycle = createLifecycle({ cleanupTimeoutMs: 40 });
+  let first = 0, late = 0;
+  lifecycle.register(async () => { first++; });
+  await lifecycle.cancel('SIGINT');
+  assert.equal(lifecycle.signal.aborted, true);
+  assert.throws(() => lifecycle.throwIfCancelled(), error => error.code === 'VALDR_EVAL_CANCELLED');
+  await lifecycle.register(async () => { late++; });
+  await lifecycle.close();
+  assert.equal(first, 1);
+  assert.equal(late, 1);
+  const failed = createLifecycle({ cleanupTimeoutMs: 20 });
+  failed.register(() => new Promise(() => {}));
+  const report = await failed.close();
+  assert.equal(report.ok, false);
+  assert.match(report.errors[0], /timed out/);
+});
+
+test('real process interruption writes cancellation evidence after resource cleanup', async t => {
+  const lifecycleFile = fileURLToPath(new URL('../../core/lifecycle.mjs', import.meta.url));
+  assert.ok(fs.existsSync(lifecycleFile), 'Lifecycle support must exist');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-interrupt-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const script = path.join(root, 'child.mjs');
+  fs.writeFileSync(script, `import fs from 'node:fs';\nimport { createLifecycle, installSignalHandlers } from ${JSON.stringify(lifecycleFile)};\nconst lifecycle=createLifecycle();\nlifecycle.register(async()=>{fs.writeFileSync(${JSON.stringify(path.join(root,'closed'))},'closed');});\nconst dispose=installSignalHandlers(lifecycle);\nconsole.log('ready');\nawait new Promise(resolve=>lifecycle.signal.addEventListener('abort',resolve,{once:true}));\nawait lifecycle.close();\nfs.writeFileSync(${JSON.stringify(path.join(root,'result.json'))},JSON.stringify({outcome:'cancelled'}));\ndispose();\nprocess.exitCode=130;\n`);
+  const child = spawn(process.execPath, [script], { stdio: ['ignore','pipe','pipe'] });
+  t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
+  const exited = new Promise(resolve => child.once('exit', (code, signal) => resolve({code,signal})));
+  await new Promise((resolve,reject) => { child.stdout.once('data', resolve); child.once('error',reject); child.once('exit', code => reject(new Error(`Child exited before ready: ${code}`))); });
+  child.kill('SIGINT');
+  assert.deepEqual(await exited, { code: 130, signal: null });
+  assert.equal(fs.readFileSync(path.join(root,'closed'),'utf8'),'closed');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root,'result.json'))).outcome,'cancelled');
+});
+
+test('doctor interruption during MCP startup closes its child and records a cancelled summary', async t => {
+  configureRuntimeEnvironment(t);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-startup-interrupt-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const binary = path.join(root, 'valdr');
+  const marker = path.join(root, 'started.json');
+  fs.writeFileSync(binary, `#!/usr/bin/env node\nconst fs=require('node:fs');\nif(process.argv[2]==='version'){console.log('valdr 99.0.0 fixture');process.exit(0);}\nfs.writeFileSync(${JSON.stringify(marker)},JSON.stringify({pid:process.pid,home:process.argv[process.argv.indexOf('--pm-home')+1]}));\nrequire('node:readline').createInterface({input:process.stdin});\n`, { mode: 0o700 });
+  const entry = fileURLToPath(new URL('../../run.mjs', import.meta.url));
+  const child = spawn(process.execPath, [entry, 'doctor', '--json', '--valdr-bin', binary, '--evidence-root', path.join(root,'evidence')], { stdio: ['ignore','pipe','pipe'] });
+  t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
+  let stdout = '', stderr = '';
+  child.stderr.on('data', value => { stderr += value; });
+  child.stdout.on('data', value => { stdout += value; });
+  const exited = new Promise(resolve => child.once('close', (code, signal) => resolve({ code, signal })));
+  for (let tries=0; !fs.existsSync(marker) && tries<1000; tries++) await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(fs.existsSync(marker), `Owned MCP startup must be observed before interruption: ${stdout} ${stderr}`);
+  const evidenceRoot=path.join(root,'evidence');
+  const activeTrial=path.join(evidenceRoot,fs.readdirSync(evidenceRoot)[0]);
+  assert.ok(fs.existsSync(path.join(activeTrial,'.active')),'Execution must mark its evidence active before MCP startup');
+  const owned = JSON.parse(fs.readFileSync(marker));
+  t.after(() => {try{process.kill(owned.pid,'SIGKILL');}catch{}fs.rmSync(path.dirname(owned.home), { recursive: true, force: true });});
+  child.kill('SIGINT');
+  const outcome = await Promise.race([exited, new Promise((_,reject)=>{ const timer=setTimeout(()=>reject(new Error('CLI did not stop')),5000); timer.unref(); })]);
+  assert.deepEqual(outcome,{code:130,signal:null});
+  assert.equal(JSON.parse(stdout).outcome,'cancelled');
+  assert.throws(()=>process.kill(owned.pid,0),error=>error.code==='ESRCH');
+  const trial = path.join(root,'evidence',fs.readdirSync(path.join(root,'evidence'))[0]);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(trial,'summary.json'))).outcome,'cancelled');
+  assert.equal(fs.existsSync(path.join(trial,'.active')),false,'Marker releases after cancellation summary persistence');
+});

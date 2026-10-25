@@ -1,0 +1,4 @@
+interface:
+  display_name: "Valdr Evals"
+  short_description: "Run agent evaluations and create reports"
+  default_prompt: "Use $valdr-evals to evaluate a pack agent, build useful test scenarios, and produce an HTML report."

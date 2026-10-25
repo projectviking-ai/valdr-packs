@@ -175,7 +175,7 @@ Used in `agents/prompts/**` to bind a block of text to a capability for hashing/
 - `capability`
   - Attributes:
     - `id` — canonical capability identifier (for example, `planning.vmp`, `planning.vmp.system`, `planning.vmp.typescript`).
-    - `pack` — logical prompt pack (normalized to `valdr` for internal prompts).
+    - `pack` — owning prompt pack, such as `valdr`.
     - `role` — capability role from the enum: `core` | `workflow` | `constraints` | `context` | `validation` | `integration`.
       - `core` — Identity, mission, non-negotiable behavior.
       - `workflow` — How the agent operates, loops, execution patterns.

@@ -88,7 +88,7 @@ Does the task imply anything that requires explicit approval, and does it say so
 Flag when the work implies any of:
 
 - A database migration or schema change
-- A cross-workspace contract change (`packages/pm-protocol`, MCP tool names or schemas, shared types)
+- A cross-workspace contract change (public API schemas, MCP tool names or schemas, shared types)
 - A destructive or irreversible operation
 - Credential or secret access
 - Sending data to an external provider

@@ -48,10 +48,10 @@ For project scope, resolve `projectKey → projectId` via `pm_project { action: 
 
 | Mode | When |
 |------|------|
-| `auto` (default) | General relevance — semantic if available, lexical otherwise |
+| `auto` (default) | General retrieval; inspect the returned mode and availability |
 | `lexical` | Exact phrase or unique token must match (combine with `exactToken: true` for whole-token matching) |
 | `semantic` | Conceptual / "vibe" search |
-| `hybrid` | Best of both lexical and semantic |
+| `hybrid` | Lexical and semantic matches when available |
 
 After the call, inspect `retrievalModeRequested` vs `retrievalModeUsed`. If `semantic`/`hybrid` was requested but `lexical` ran, check `semanticUnavailableReasons` (`semantic_backend_unavailable`, `no_embedding_model`). **Surface the fallback** — do not paper over it.
 
@@ -64,7 +64,7 @@ Filters compose with AND. Start broad, narrow if results are noisy.
 | `knowledgeTypes` | Narrow to `["docs"]`, `["code_intelligence"]`, etc. |
 | `trustTiers` | Default `["canonical", "operational"]` to suppress memory-tier scratch; add `"memory"` if notes are wanted |
 | `languages` | Code search constrained to a language |
-| `pathPrefixes` | Question scoped to a subtree (`["tools/pm-mcp/src"]`) — accepts `file://`, absolute, or project-relative |
+| `pathPrefixes` | Question scoped to a subtree (`["src/services"]`) — accepts `file://`, absolute, or project-relative |
 | `attachmentIds` | The user already named the source |
 | `enabledOnly: false` | Diagnostic only — search disabled attachments |
 | `responseProfile` | Use `compact` by default; use `debug` or `full` only when score diagnostics are needed |
@@ -84,7 +84,8 @@ Each hit:
 | `language`, `symbolKind`, `symbolName`, `symbolKey` | Code chunks only |
 | `tokenEstimate` | Cost hint for follow-up `includeContent` calls |
 | `rankingReasons` | Why this hit ranked — present in `debug` / `full` profiles |
-| `score`, `scoreBreakdown` | Numeric ranking — diagnostics profiles only |
+| `score` | Relevance score, also present in compact results |
+| `scoreBreakdown` | Ranking details in `debug` / `full` profiles |
 
 Top-level:
 - `totalHitCount` — if very large, narrow filters; if 0, broaden
@@ -112,19 +113,21 @@ pm_knowledge { action: "search", ..., topK: 10, offset: 10 }
 
 With `responseProfile: "debug"` or `"full"`, hits include ranking diagnostics such as `rankingReasons` and `scoreBreakdown`:
 
-| Component | Meaning |
-|-----------|---------|
-| `lexical` | FTS5 BM25-style score on normalized text |
-| `semantic` | Cosine similarity against the chunk's embedding |
-| `trust` | `TRUST_TIER_WEIGHTS[trustTier]` (canonical 1.0 / operational 0.7 / memory 0.4) |
-| `rankingWeight` | Per-attachment weight from curation |
-| `matchBoost` | Symbol/title/section-path match bonuses |
-| `contextMultiplier` | Path classification (`tools/`, `tests/`, `docs/`, `node_modules/`) |
-| `sourceBalanceMultiplier` | Penalty for one source dominating results |
-| `testPenaltyMultiplier` | De-weights test-only chunks unless explicitly requested |
-| `final` | Product of the above |
+Lexical and semantic matches help explain relevance. Trust tiers also influence
+ranking; the returned `trust` diagnostic helps explain that influence.
 
-Use this to explain relevance, or to spot mis-tiered sources (high `trust` on chunks that shouldn't be canonical).
+| Trust tier | Typical source |
+|------------|----------------|
+| `canonical` | First-party docs, primary specs, official project guidance |
+| `operational` | Runbooks, operator notes, project references |
+| `memory` | Agent notes, draft observations, lower-confidence context |
+
+Memory ranks below trusted project documentation unless the source is
+deliberately promoted. Source curation can change `trustTier` and
+`rankingWeight`; inspect the returned attachment metadata when a source's
+ranking is surprising. Explain the returned reasons alongside the source's
+content and provenance, without assuming fixed weights or reconstructing a
+score formula.
 
 ## Result Delivery
 

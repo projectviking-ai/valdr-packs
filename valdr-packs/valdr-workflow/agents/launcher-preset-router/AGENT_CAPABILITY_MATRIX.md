@@ -9,4 +9,4 @@
 | `valdr.core.tools.pm-provider` | `integration` | Yes | `pm_provider` contract for listing provider presets. |
 | `valdr.core.tools.pm-task` | `integration` | Yes | `pm_task` contract for loading the task under evaluation. |
 
-Only the four non-hot-load capabilities are linked to the agent in the registry. The two `valdr.core.tools.*` entries are declared here for pack import and reached at runtime through the system prompt's hot-load table.
+The four non-hot-load capabilities apply on every turn. Load the two `valdr.core.tools.*` references through the system prompt's hot-load table when their tool contracts are needed.

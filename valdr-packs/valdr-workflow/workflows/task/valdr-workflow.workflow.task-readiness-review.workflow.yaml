@@ -18,12 +18,8 @@ workflow:
     reviewerSessionUlid:
       type: string
       required: true
-      # Not taken on trust. The engine's own guard proves only that this session
-      # belongs to some trusted agent, never which agent or which task, so
-      # await_verdict asserts both explicitly through expectAgentHandle and
-      # expectTaskKey below. A caller that hands this workflow a sizer session,
-      # or a reviewer session opened against a different task, is blocked before
-      # the prompt is delivered rather than believed.
+      # await_verdict checks expectAgentHandle and expectTaskKey before sending
+      # the prompt. A sizer session or a reviewer for another task must block.
       description: Existing task-readiness-reviewer session retained across repair and human-correction passes. Its target agent and task binding are re-checked before each turn.
   outputs:
     outcome:
@@ -81,17 +77,12 @@ workflow:
       session:
         action: input
         sessionUlid: "${workflow.inputs.reviewerSessionUlid}"
-        # This workflow takes its reviewer session from the caller, so these two
-        # assertions are what bind that ULID to a task-readiness-reviewer session
-        # opened against this task. Without them the engine would deliver the
-        # reviewer prompt to any session with a trusted agent handle and return
-        # its verdict as this task's readiness verdict. A mismatch blocks the
-        # step; it does not fall through.
+        # Require the caller's session to belong to this reviewer and this task.
+        # A mismatch blocks the step before the prompt is delivered.
         expectAgentHandle: task-readiness-reviewer
         expectTaskKey: "${workflow.inputs.taskKey}"
-        # Replaces the builder's default turn instruction, which otherwise tells
-        # the session to IMPLEMENT the task. The rubric and the JSON output
-        # contract come from the agent's registered capabilities.
+        # Keep this turn focused on readiness under the registered rubric and
+        # JSON output contract.
         prompt: |
           Review task ${workflow.inputs.taskKey} for implementation readiness.
 

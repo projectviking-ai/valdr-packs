@@ -36,10 +36,10 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Set up Bun for generated tool checks
+      - name: Set up Bun for generated tools and evaluation tests
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.4.2"
+          bun-version: "1.4.3"
 
       - name: Read repository version
         id: version
@@ -98,7 +98,7 @@ jobs:
           fi
           echo "path=$(pwd)/bin/valdr" >> "$GITHUB_OUTPUT"
 
-      - name: Validate packs and run script tests
+      - name: Validate packs and run script and evaluation tests
         run: make ci-validate
 
       - name: Build release archives

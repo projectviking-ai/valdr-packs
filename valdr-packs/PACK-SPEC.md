@@ -39,8 +39,8 @@ homepage: https://example.com
 repository: https://github.com/org/repo
 tags: [valdr, agents]
 includes:
-  - path: valdr
-    description: Core Valdr agents and capabilities.
+  - path: agents
+    description: Valdr agents and capabilities.
   - path: workflows
     description: Workflow definitions shipped by the pack.
 ```
@@ -82,7 +82,7 @@ includes:
 - `tags` is a comma-separated list, e.g. `tags="docs,reference,mcp"`.
 - Import/export canonicalizes tags to lowercase, unique values, and stable sort order.
 
-## Example (valdr pack)
+## Example (assembled Valdr pack)
 
 ```yaml
 schemaVersion: 1.0
@@ -91,10 +91,10 @@ name: Valdr Pack
 version: 0.1.0
 description: Canonical Valdr pack distributed from valdr-packs/valdr.
 includes:
-  - path: valdr
-    description: Core Valdr agents and capabilities.
-  - path: valdr-internal
-    description: Internal executor workflows and TypeScript task agent tooling.
+  - path: agents
+    description: Valdr agents and capabilities.
+  - path: executor
+    description: Task execution workflows and capabilities.
 ```
 
 ## Executable user workflow tools
@@ -105,6 +105,6 @@ A source archive carries negotiated `userTools.version: 1` entries with tool ID,
 
 Each CLI occupies `tools/<cli>/` (`gh`, `aws`, `gcloud`, or `acli`) with its own manifest and self-contained `runner.mjs`; no other CLI command table enters its snapshot. `scripts/generate-user-workflow-cli-tools.mjs` emits these files, and `--check` verifies them.
 
-Imported tools are immediately available as individual named Builder library entries, one per tool ID. New steps use the latest installed revision, while existing workflow pins remain unchanged. Manage installed revisions in **Workflows → Tools**, after **Runs**; import/export remains in **Settings → Valdr Packs**. Import never executes files, installs dependencies or authenticates CLIs. Workflows execute their programs on the host, like Command steps, and select the working directory; optional step-level `cwd` supports absolute or relative overrides and expressions. New manifests omit `process.cwd`; the optional legacy value is ignored. Inventoried file arguments resolve against the retained tool root. Manifest `inheritEnv` selects additional names from the UI/MCP launch environment or shared startup references in `~/.valdr/environment.env`, with internal and unsafe names filtered; see [environment variables](https://valdr.ai/valdr/docs/workflows/user-tools/runtime/#environment-variables). No project key or workflow context is added to the JSON stdin/stdout contract.
+Imported tools are immediately available as individual named Builder library entries, one per tool ID. New steps use the latest installed revision, while existing workflow pins remain unchanged. Manage installed revisions in **Workflows → Tools**, after **Runs**; import/export remains in **Settings → Valdr Packs**. Import never executes files, installs dependencies or authenticates CLIs. Workflows execute their programs on the host, like Command steps, and select the working directory; optional step-level `cwd` supports absolute or relative overrides and expressions. New manifests omit `process.cwd`; the optional legacy value is ignored. Inventoried file arguments resolve against the retained tool root. Manifest `inheritEnv` selects additional names from the UI/MCP launch environment or shared startup references in `~/.valdr/environment.env`, with restricted names filtered; see [environment variables](https://valdr.ai/valdr/docs/workflows/user-tools/runtime/#environment-variables). No project key or workflow context is added to the JSON stdin/stdout contract.
 
 Export contains source bytes and pins, excluding host environment values. Same ID/revision with changed content conflicts; change revision and select the new pin explicitly. Host-installed runtime and CLI versions remain independent of the source hash.

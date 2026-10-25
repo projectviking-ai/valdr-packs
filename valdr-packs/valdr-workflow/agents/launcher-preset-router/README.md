@@ -12,7 +12,7 @@
 
 See [AGENT_CAPABILITY_MATRIX.md](AGENT_CAPABILITY_MATRIX.md).
 
-The policy and both `base` capabilities are deliberately **not** hot-load: `buildSystemPrompt` filters hot-load capabilities out of the system prompt, so the router would otherwise choose without its policy or its provider knowledge.
+The policy and both `base` capabilities are always loaded so every routing decision follows the policy, MCP access rules, and provider guidance.
 
 ## Output Contract
 

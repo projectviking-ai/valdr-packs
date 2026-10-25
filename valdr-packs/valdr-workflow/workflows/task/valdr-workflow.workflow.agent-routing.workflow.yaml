@@ -75,9 +75,8 @@ workflow:
           keepAliveMs: 0
           sessionIdleCloseMs: 0
         maxRuntimeSeconds: 900
-        # Replaces the builder's default turn instruction, which otherwise tells
-        # the session to IMPLEMENT the task. The routing policy and the JSON
-        # output contract come from the agent's registered capabilities.
+        # Keep this turn focused on routing under the registered policy and
+        # JSON output contract.
         prompt: |
           Evaluate the task and the eligible agents through the in-session Valdr MCP tools, apply your routing policy, and return your decision:
 

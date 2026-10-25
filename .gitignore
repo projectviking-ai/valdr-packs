@@ -1,6 +1,9 @@
 /.idea
 /.claude/
-/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/valdr-evals/
 /.gemini/
 /.superpowers/
 /docs/superpowers/
@@ -10,3 +13,8 @@
 /build
 /valdr-packs.iml
 .DS_Store
+.env
+.env.*
+
+/.valdr-evals/
+/.evals.local.json

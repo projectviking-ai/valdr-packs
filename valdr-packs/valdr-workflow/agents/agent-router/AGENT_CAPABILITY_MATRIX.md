@@ -8,6 +8,6 @@
 | `valdr.core.tools.pm-agent` | `integration` | Yes | `pm_agent` contract for listing and filtering the agent registry. |
 | `valdr.core.tools.pm-task` | `integration` | Yes | `pm_task` contract for loading the task under evaluation. |
 
-Only the three non-hot-load capabilities are linked to the agent in the registry. The two `valdr.core.tools.*` entries are declared here for pack import and reached at runtime through the system prompt's hot-load table.
+The three non-hot-load capabilities apply on every turn. Load the two `valdr.core.tools.*` references through the system prompt's hot-load table when their tool contracts are needed.
 
 `valdr-workflow.base.provider-capabilities` is deliberately **not** bound: it describes providers, models, and cost, which are the preset router's concern. This router chooses who, not what it runs on.

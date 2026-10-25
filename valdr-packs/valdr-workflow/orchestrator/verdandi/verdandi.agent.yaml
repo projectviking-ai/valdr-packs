@@ -14,9 +14,8 @@ capabilities:
   - key: valdr-workflow.verdandi.system
     role: core
 
-  # NOT hot-load. buildSystemPrompt filters hot-load capabilities out of the
-  # system prompt, and these two are the rules that stop Verdandi shipping a
-  # workflow that validates but cannot run. They must always be present.
+  # Always loaded: workflow hazards and MCP access rules are required on every
+  # turn, including before Verdandi chooses which detailed guidance to load.
   - key: valdr-workflow.verdandi.hazards
     role: constraints
   - key: valdr-workflow.base.mcp-access
@@ -24,6 +23,9 @@ capabilities:
 
   # Hot-load: large references pulled in when the task calls for them.
   - key: valdr-workflow.verdandi.authoring
+    role: workflow
+    hot-load: true
+  - key: valdr-workflow.steps.human-gate
     role: workflow
     hot-load: true
   - key: valdr-workflow.verdandi.operating
@@ -34,6 +36,26 @@ capabilities:
     hot-load: true
   - key: valdr-workflow.verdandi.user-tools
     role: workflow
+    hot-load: true
+
+  # Shared workflow execution references; load only the selected tool family.
+  - key: valdr-workflow.tools.overview
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.valdr
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.command
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.git
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.github
+    role: integration
+    hot-load: true
+  - key: valdr-workflow.tools.user-tools
+    role: integration
     hot-load: true
 
   - key: valdr.core.tools.pm-user-tool
@@ -64,5 +86,20 @@ capabilities:
     role: integration
     hot-load: true
   - key: valdr.core.tools.pm-capability
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-project
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-sprint
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.vmp
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-prompt
+    role: integration
+    hot-load: true
+  - key: valdr.core.tools.pm-knowledge
     role: integration
     hot-load: true
