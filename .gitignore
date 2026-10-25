@@ -5,8 +5,11 @@
 /.agents/skills/*
 !/.agents/skills/valdr-evals/
 /.gemini/
+/.superpowers/
+/docs/superpowers/
 /.valdr/
 /.mcp.json
+/.env
 /build
 /valdr-packs.iml
 .DS_Store

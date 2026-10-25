@@ -1,0 +1,163 @@
+{
+  "provenance": {
+    "sourceUrl": "https://developers.openai.com/api/docs/guides/decisions",
+    "checkedAt": "2026-10-17",
+    "synthetic": true,
+    "note": "Authored contract example, not a captured live response."
+  },
+  "input": {
+    "engine": {
+      "provider": "openai",
+      "model": "gpt-6-luna"
+    },
+    "text": "Fix the validation error.",
+    "questions": [
+      {
+        "id": "kind",
+        "type": "choice",
+        "instructions": "Which deliverable is requested?",
+        "options": [
+          {
+            "id": "code",
+            "description": "Program behavior"
+          },
+          {
+            "id": "docs",
+            "description": "Written guidance"
+          }
+        ],
+        "acceptance": {
+          "minSelectedProbability": 0.8
+        }
+      },
+      {
+        "id": "ready",
+        "type": "predicate",
+        "instructions": "Is the request actionable?",
+        "acceptance": {
+          "noAtMost": 0.2,
+          "yesAtLeast": 0.8
+        }
+      },
+      {
+        "id": "size",
+        "type": "score",
+        "instructions": "How much work is requested?",
+        "levels": [
+          {
+            "id": "small",
+            "description": "One simple edit"
+          },
+          {
+            "id": "medium",
+            "description": "Several related edits"
+          },
+          {
+            "id": "large",
+            "description": "Many independent changes"
+          }
+        ],
+        "acceptance": {
+          "minSelectedProbability": 0.4
+        }
+      }
+    ]
+  },
+  "request": {
+    "model": "gpt-6-luna",
+    "input": "Fix the validation error.",
+    "questions": [
+      {
+        "name": "kind",
+        "type": "choice",
+        "instructions": "Which deliverable is requested?",
+        "choices": [
+          {
+            "value": "code",
+            "description": "Program behavior"
+          },
+          {
+            "value": "docs",
+            "description": "Written guidance"
+          }
+        ]
+      },
+      {
+        "name": "ready",
+        "type": "predicate",
+        "instructions": "Is the request actionable?"
+      },
+      {
+        "name": "size",
+        "type": "score",
+        "instructions": "How much work is requested?",
+        "levels": [
+          {
+            "label": "small",
+            "description": "One simple edit"
+          },
+          {
+            "label": "medium",
+            "description": "Several related edits"
+          },
+          {
+            "label": "large",
+            "description": "Many independent changes"
+          }
+        ]
+      }
+    ]
+  },
+  "response": {
+    "model": "gpt-6-luna",
+    "answers": [
+      {
+        "name": "kind",
+        "type": "choice",
+        "choice": "code",
+        "probabilities": [
+          {
+            "value": "code",
+            "probability": 0.79
+          },
+          {
+            "value": "docs",
+            "probability": 0.21
+          }
+        ],
+        "confidence": 0.99
+      },
+      {
+        "name": "ready",
+        "type": "predicate",
+        "probability": 0.8
+      },
+      {
+        "name": "size",
+        "type": "score",
+        "score": 0.8,
+        "probabilities": [
+          {
+            "value": 0,
+            "label": "small",
+            "probability": 0.45
+          },
+          {
+            "value": 1,
+            "label": "medium",
+            "probability": 0.3
+          },
+          {
+            "value": 2,
+            "label": "large",
+            "probability": 0.25
+          }
+        ],
+        "confidence": 0.1
+      }
+    ],
+    "usage": {
+      "input_tokens": 80
+    }
+  }
+}
