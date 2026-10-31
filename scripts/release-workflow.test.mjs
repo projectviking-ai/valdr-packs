@@ -44,7 +44,7 @@ test("one release builds all five packs with the pinned CLI and publishes the re
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
   assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
-  assert.match(workflow, /run: make build-valdr-all test-decision-tools\n/);
+  assert.match(workflow, /run: make build-valdr-all test-decision-tools test-pr-feedback-tool\n/);
   assert.match(fs.readFileSync("Makefile", "utf8"), /^build-valdr-all: build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-tools$/m);
   assert.match(workflow, /tr -d '\\n' < VERSION/);
   assert.match(workflow, /if \[ -z "\$CLI_VERSION" \]/);
@@ -70,12 +70,12 @@ test("one release builds all five packs with the pinned CLI and publishes the re
     /tar -xzf/,
     /actual_version="\$\(bin\/valdr version \| awk/,
     /make ci-validate/,
-    /make build-valdr-all test-decision-tools/,
+    /make build-valdr-all test-decision-tools test-pr-feedback-tool/,
     /gh release create/,
   ].map((pattern) => workflow.search(pattern));
   assert.ok(releaseOperations.every((index) => index >= 0), "expected every release operation");
   assert.ok(releaseOperations.every((index, position) => position === 0 || releaseOperations[position - 1] < index),
-    "release operations must be download, checksum, extract, verify, script tests, archive build and decision tests, then release");
+    "release operations must be download, checksum, extract, verify, script tests, archive build and tool tests, then release");
 
   const ghSteps = steps.filter((step) => /\bgh\b/.test(step));
   assert.ok(ghSteps.length >= 3, "expected lookup, download, and publishing gh steps");
@@ -146,7 +146,7 @@ test("pull requests validate Workflow and Tools with the exact pinned public CLI
   assert.match(workflow, /actual_version="\$\(bin\/valdr version \| awk 'NR == 1 \{ print \$2 \}'\)"/);
   assert.match(workflow, /if \[ -z "\$actual_version" \] \|\| \[ "\$actual_version" != "\$CLI_VERSION" \]/);
   assert.match(workflow, /VALDR_BIN: \$\{\{ steps\.valdr\.outputs\.path \}\}/);
-  assert.match(workflow, /run: make validate-valdr-workflow test-decision-tools\n/);
+  assert.match(workflow, /run: make validate-valdr-workflow test-decision-tools test-pr-feedback-tool\n/);
 });
 
 test("decision test target builds its archive and stays credential-free even with inherited opt-in", (t) => {
@@ -214,7 +214,7 @@ test("shipped workflow examples use current versions and the agent router array 
   assert.doesNotMatch(agentRouterReadme, /key: valdr-workflow\.task\.choose-agent\n\s+version: 0\.1\.0/);
   assert.match(presetRouterReadme, /key: valdr-workflow\.task\.choose-preset\n\s+version: 0\.4\.0/);
   assert.doesNotMatch(presetRouterReadme, /key: valdr-workflow\.task\.choose-preset\n\s+version: 0\.1\.0/);
-  assert.match(verdandiAuthoring, /key: valdr-workflow\.task\.code-review, version: 0\.4\.0/);
+  assert.match(verdandiAuthoring, /key: valdr-workflow\.task\.code-review, version: 0\.4\.1/);
 });
 
 test("public workflow descriptions avoid development-process copy", () => {

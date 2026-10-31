@@ -292,7 +292,7 @@ A `subworkflow` with `forEach` runs once per item. The shipped `valdr-workflow.t
 - key: review_assignments
   name: Run every staffed reviewer
   kind: subworkflow
-  workflow: { key: valdr-workflow.task.code-review, version: 0.4.0 }
+  workflow: { key: valdr-workflow.task.code-review, version: 0.4.1 }
   forEach:
     items: "${workflow.inputs.assignments}"   # exact reference, never interpolation
     itemName: assignment                      # each item arrives as this child input

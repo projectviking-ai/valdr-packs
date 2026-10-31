@@ -1,19 +1,20 @@
-schemaVersion: 1.0
+schemaVersion: 1
 workflow:
   key: valdr-workflow.task.prepare-deliver-and-publish
-  name: Prepare, Deliver, And Publish Task
-  description: Take one written task through readiness, sizing, staffing, implementation, review, commit, and an operator-approved pull request. Use it for a single task that does not need sprint scheduling.
-  version: 0.3.0
+  name: "Prepare, Deliver, And Publish Task"
+  description: "Take one written task through readiness, sizing, staffing, implementation, review, commit, and an operator-approved pull request, then, unless watchPullRequest is false, watch that pull request for feedback until it is merged or closed. Use it for a single task that does not need sprint scheduling."
+  version: 0.4.14
   pack: valdr-workflow
   source:
     kind: capability
     capabilityKey: valdr-workflow.workflow.task-prepare-deliver-and-publish
-  start: { mode: manual }
+  start:
+    mode: manual
   inputs:
     taskKey:
       type: string
       required: true
-      description: Task to prepare, deliver, and publish. Starts written and unstaffed; preparation stages it.
+      description: "Task to prepare, deliver, and publish. Starts written and unstaffed; preparation stages it."
     routerLauncherConfigKey:
       type: string
       required: true
@@ -33,7 +34,7 @@ workflow:
     baseRef:
       type: string
       required: false
-      description: Exact local branch the task is built on and the pull request targets - main, a feature branch, or any other local branch. Omit to use whatever branch the repository currently has checked out. The implementation worktree starts from this branch and the pull request is opened against it.
+      description: "Exact local branch the task is built on and the pull request targets - main, a feature branch, or any other local branch. Omit to use whatever branch the repository currently has checked out. The implementation worktree starts from this branch and the pull request is opened against it."
     remoteName:
       type: string
       required: false
@@ -52,7 +53,7 @@ workflow:
       type: string
       required: false
       default: ""
-      description: Preset the implementation runs on when the preset router cannot distinguish the registered presets. Set it so routing can only improve the choice, never block the run.
+      description: "Preset the implementation runs on when the preset router cannot distinguish the registered presets. Set it so routing can only improve the choice, never block the run."
     defaultExecutorHandle:
       type: string
       required: false
@@ -63,23 +64,82 @@ workflow:
       required: false
       default: ""
       description: Reviewer staffed when the agent router finds no eligible agent declaring a connection to the task.
+    watchPullRequest:
+      type: boolean
+      required: false
+      default: true
+      description: "Watch the published pull request and address its feedback and failing checks, pushing reviewed fixes to it without another approval, until it is merged or closed. Needs node and an authenticated gh on the Valdr host. Set false to mark the task done as soon as the pull request is published, without a watch."
+    checkEvery:
+      type: string
+      required: false
+      default: 5m
+      description: "How often the automation that watches the published pull request checks it, as a whole number of minutes, hours or days such as 5m, 2h or 1d. Ignored when watchPullRequest is false."
   outputs:
-    taskKey: { type: string, required: true }
-    executorHandle: { type: string, required: true, description: Executor staffed by preparation. }
-    reviewerHandles: { type: array, required: true, description: Reviewers staffed by preparation. }
-    reviewId: { type: string, required: true, description: Review opened by preparation. }
-    points: { type: string, required: true, description: Story points assigned by preparation. }
-    deliveryRunUlid: { type: string, required: true, description: The task.deliver run that was closed out. }
-    implementationSessionUlid: { type: string, required: true }
-    branchName: { type: string, required: true, description: Task branch that was committed and published as the pull request head. }
-    baseRef: { type: string, required: true, description: Branch the worktree started from and the pull request base. }
-    commitSha: { type: string, required: true }
-    finalTaskStatus: { type: string, required: true, description: "done when the pull request was published, verified when the proposal was rejected." }
-    pullRequestDecision: { type: string, required: true, description: "approved or rejected, from the proposal gate." }
-    pullRequestHeadSha: { type: string, required: true }
-    pullRequestPublicationOutcome: { type: string, required: false }
-    pullRequestNumber: { type: number, required: false }
-    pullRequestUrl: { type: string, required: false }
+    taskKey:
+      type: string
+      required: true
+    executorHandle:
+      type: string
+      required: true
+      description: Executor staffed by preparation.
+    reviewerHandles:
+      type: array
+      required: true
+      description: Reviewers staffed by preparation.
+    reviewId:
+      type: string
+      required: true
+      description: Review opened by preparation.
+    points:
+      type: string
+      required: true
+      description: Story points assigned by preparation.
+    deliveryRunUlid:
+      type: string
+      required: true
+      description: The task.deliver run that was closed out.
+    implementationSessionUlid:
+      type: string
+      required: true
+    branchName:
+      type: string
+      required: true
+      description: Task branch that was committed and published as the pull request head.
+    baseRef:
+      type: string
+      required: true
+      description: Branch the worktree started from and the pull request base.
+    commitSha:
+      type: string
+      required: true
+    finalTaskStatus:
+      type: string
+      required: true
+      description: "verified after the pull request was published with a watch, or after the proposal was rejected; the watch marks the task done when the pull request is merged or closed. done when the pull request was published with watchPullRequest false."
+    pullRequestDecision:
+      type: string
+      required: true
+      description: "approved or rejected, from the proposal gate."
+    pullRequestHeadSha:
+      type: string
+      required: true
+    pullRequestPublicationOutcome:
+      type: string
+      required: false
+    pullRequestNumber:
+      type: number
+      required: false
+    pullRequestUrl:
+      type: string
+      required: false
+    automationKey:
+      type: string
+      required: false
+      description: "Automation that watches the published pull request. Absent when no pull request was published, watchPullRequest is false, or the pull request was already closed."
+    watchOutcome:
+      type: string
+      required: false
+      description: "watchable when the watch was installed, not_open when the pull request was already merged or closed. Absent when no pull request was published or watchPullRequest is false."
   outputMappings:
     taskKey: "${workflow.inputs.taskKey}"
     executorHandle: "${steps.prepare.outputs.executorHandle}"
@@ -97,11 +157,9 @@ workflow:
     pullRequestPublicationOutcome: "${steps.publish.outputs.publicationOutcome}"
     pullRequestNumber: "${steps.publish.outputs.prNumber}"
     pullRequestUrl: "${steps.publish.outputs.prUrl}"
+    automationKey: "${steps.watch_pr.outputs.automationKey}"
+    watchOutcome: "${steps.watch_pr.outputs.outcome}"
   steps:
-    # Preflight: the base branch has to exist on the remote or publication
-    # fails 20 minutes from now. Check it in seconds, before any agent runs.
-    # Skipped when no baseRef was given, since the branch is only known once
-    # the implementation worktree exists.
     - key: preflight_remote
       name: Check base branch on remote
       kind: tool
@@ -109,7 +167,9 @@ workflow:
         - kind: value_equals
           value: "${workflow.inputs.baseRef}"
           equals: "${workflow.inputs.baseRef}"
-      tool: { id: git, action: remote_status }
+      tool:
+        id: git
+        action: remote_status
       inputs:
         projectKey: "${runtime.projectKey}"
         remoteName: "${workflow.inputs.remoteName}"
@@ -119,11 +179,11 @@ workflow:
         outcome: $.normalized.outcome
         baseSha: $.normalized.baseSha
         recommendedAction: $.normalized.recommendedAction
-
     - key: gate_preflight
       name: Gate on remote base branch
       kind: condition
-      needs: [preflight_remote]
+      needs:
+        - preflight_remote
       when:
         - kind: value_equals
           value: "${workflow.inputs.baseRef}"
@@ -135,15 +195,16 @@ workflow:
       outputs:
         outcome: "${steps.preflight_remote.outputs.outcome}"
         reason: "Remote ${workflow.inputs.remoteName} reported ${steps.preflight_remote.outputs.outcome} for base branch ${workflow.inputs.baseRef}. Anything but complete blocks here: push the base branch first, because a pull request cannot target a branch the remote does not have."
-      onFailure: { action: block }
-
-    # All readiness, sizing, and staffing judgement is in here. If any gate
-    # blocks, this run blocks with it and nothing is implemented.
+      onFailure:
+        action: block
     - key: prepare
       name: Prepare task
       kind: subworkflow
-      needs: [gate_preflight]
-      workflow: { key: valdr-workflow.task.prepare, version: 0.11.0 }
+      needs:
+        - gate_preflight
+      workflow:
+        key: valdr-workflow.task.prepare
+        version: 0.11.0
       inputs:
         taskKey: "${workflow.inputs.taskKey}"
         routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
@@ -152,45 +213,40 @@ workflow:
         defaultExecutorHandle: "${workflow.inputs.defaultExecutorHandle}"
         defaultReviewerHandle: "${workflow.inputs.defaultReviewerHandle}"
       outputs:
-        outcome: "$.normalized.child.outputs.outcome"
-        executorHandle: "$.normalized.child.outputs.executorHandle"
-        reviewerHandles: "$.normalized.child.outputs.reviewerHandles"
-        reviewId: "$.normalized.child.outputs.reviewId"
-        points: "$.normalized.child.outputs.points"
-
-    # Implement, review, loop on requested changes, then commit the approved
-    # delivery on the task branch. No merge target is passed: the task branch
-    # stays separate so it can be published as a head. The task is left
-    # verified here; only a published pull request marks it done, below.
+        outcome: $.normalized.child.outputs.outcome
+        executorHandle: $.normalized.child.outputs.executorHandle
+        reviewerHandles: $.normalized.child.outputs.reviewerHandles
+        reviewId: $.normalized.child.outputs.reviewId
+        points: $.normalized.child.outputs.points
     - key: deliver_and_closeout
       name: Deliver and close out task
       kind: subworkflow
-      needs: [prepare]
-      workflow: { key: valdr-workflow.task.deliver-and-closeout, version: 0.5.0 }
+      needs:
+        - prepare
+      workflow:
+        key: valdr-workflow.task.deliver-and-closeout
+        version: 0.5.3
       inputs:
         taskKey: "${workflow.inputs.taskKey}"
         routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
         baseRef: "${workflow.inputs.baseRef}"
         executorLauncherConfigKey: "${workflow.inputs.executorLauncherConfigKey}"
-        # The task stays verified until the pull request is actually published;
-        # mark_done below owns that transition.
         markDone: false
       outputs:
-        deliveryRunUlid: "$.normalized.child.outputs.deliveryRunUlid"
-        implementationSessionUlid: "$.normalized.child.outputs.implementationSessionUlid"
-        branchName: "$.normalized.child.outputs.branchName"
-        baseRef: "$.normalized.child.outputs.baseRef"
-        commitSha: "$.normalized.child.outputs.commitSha"
-        finalTaskStatus: "$.normalized.child.outputs.finalTaskStatus"
-
-    # Freeze the committed head against the branch the worktree started from,
-    # draft a proposal, wait for the operator to approve it, then push and open
-    # the pull request.
+        deliveryRunUlid: $.normalized.child.outputs.deliveryRunUlid
+        implementationSessionUlid: $.normalized.child.outputs.implementationSessionUlid
+        branchName: $.normalized.child.outputs.branchName
+        baseRef: $.normalized.child.outputs.baseRef
+        commitSha: $.normalized.child.outputs.commitSha
+        finalTaskStatus: $.normalized.child.outputs.finalTaskStatus
     - key: publish
       name: Publish pull request
       kind: subworkflow
-      needs: [deliver_and_closeout]
-      workflow: { key: valdr-workflow.pull-request.create, version: 0.4.0 }
+      needs:
+        - deliver_and_closeout
+      workflow:
+        key: valdr-workflow.pull-request.create
+        version: 0.4.0
       inputs:
         projectKey: "${runtime.projectKey}"
         remoteName: "${workflow.inputs.remoteName}"
@@ -202,36 +258,70 @@ workflow:
         writerInstructions: "${workflow.inputs.writerInstructions}"
         initialDraft: "${workflow.inputs.initialDraft}"
       outputs:
-        decision: "$.normalized.child.outputs.decision"
-        publicationOutcome: "$.normalized.child.outputs.publicationOutcome"
-        prNumber: "$.normalized.child.outputs.prNumber"
-        prUrl: "$.normalized.child.outputs.prUrl"
-        headSha: "$.normalized.child.outputs.headSha"
-
-    # Only a published pull request completes the task. A rejected proposal
-    # leaves it verified with its branch intact, for a human to pick up.
+        decision: $.normalized.child.outputs.decision
+        publicationOutcome: $.normalized.child.outputs.publicationOutcome
+        prNumber: $.normalized.child.outputs.prNumber
+        prUrl: $.normalized.child.outputs.prUrl
+        headSha: $.normalized.child.outputs.headSha
+    - key: watch_pr
+      name: Watch pull request
+      kind: subworkflow
+      needs:
+        - publish
+      when:
+        - kind: value_in
+          value: "${steps.publish.outputs.decision}"
+          allowed:
+            - approved
+        - kind: value_equals
+          value: "${workflow.inputs.watchPullRequest}"
+          equals: true
+      workflow:
+        key: valdr-workflow.pull-request.watch
+        version: 0.3.7
+      inputs:
+        projectKey: "${runtime.projectKey}"
+        remoteName: "${workflow.inputs.remoteName}"
+        baseBranch: "${steps.deliver_and_closeout.outputs.baseRef}"
+        headBranch: "${steps.deliver_and_closeout.outputs.branchName}"
+        prNumber: "${steps.publish.outputs.prNumber}"
+        taskKey: "${workflow.inputs.taskKey}"
+        implementationSessionUlid: "${steps.deliver_and_closeout.outputs.implementationSessionUlid}"
+        checkEvery: "${workflow.inputs.checkEvery}"
+      outputs:
+        outcome: $.normalized.child.outputs.outcome
+        automationKey: $.normalized.child.outputs.automationKey
     - key: mark_done
       name: Mark task done
       kind: tool
-      needs: [publish]
+      needs:
+        - publish
       when:
         - kind: value_equals
           value: "${steps.publish.outputs.decision}"
           equals: approved
-      tool: { id: pm_task, action: change_status }
+        - kind: value_equals
+          value: "${workflow.inputs.watchPullRequest}"
+          equals: false
+      tool:
+        id: pm_task
+        action: change_status
       inputs:
         taskKey: "${workflow.inputs.taskKey}"
         to: done
         reason: "Pull request published: ${steps.publish.outputs.prUrl}"
       outputs:
-        status: "$.normalized.task.status"
-
+        status: $.normalized.task.status
     - key: reload_task
       name: Reload final task status
       kind: tool
-      needs: [mark_done]
-      tool: { id: pm_task, action: get }
+      needs:
+        - watch_pr
+        - mark_done
+      tool:
+        id: pm_task
+        action: get
       inputs:
         taskKey: "${workflow.inputs.taskKey}"
       outputs:
-        status: "$.normalized.task.status"
+        status: $.normalized.task.status

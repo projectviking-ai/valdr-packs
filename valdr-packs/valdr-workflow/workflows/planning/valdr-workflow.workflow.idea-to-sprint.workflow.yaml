@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.idea-to-sprint
   name: Execute Idea Through Sprint
   description: Create and approve a plan from an idea task, execute its generated sprint, and publish the reviewed delivery as a pull request.
-  version: 0.21.0
+  version: 0.21.3
   pack: valdr-workflow
   source:
     kind: capability
@@ -107,7 +107,7 @@ workflow:
       needs: [create_plan]
       workflow:
         key: valdr-workflow.sprint.from-plan
-        version: 0.17.0
+        version: 0.17.3
       inputs:
         projectKey: "${runtime.projectKey}"
         planKey: "${steps.create_plan.outputs.planKey}"

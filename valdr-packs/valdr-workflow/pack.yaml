@@ -1,8 +1,8 @@
-schemaVersion: 1.0
+schemaVersion: 1
 pack: valdr-workflow
 name: Valdr Workflow Pack
-version: 0.14.0
-description: Workflow-owned agents and definitions for task readiness, delivery, planning, and idea-to-sprint orchestration.
+version: 0.14.11
+description: "Workflow-owned agents, definitions, and user tools for task readiness, delivery, planning, pull-request follow-up, and idea-to-sprint orchestration."
 license: MIT
 homepage: https://valdr.ai
 repository: https://github.com/projectviking-ai/valdr-packs
@@ -19,3 +19,5 @@ includes:
     description: Workflow definitions for task readiness and delivery review.
   - path: planning-team
     description: Independent specification and planning team with orchestrator-owned acceptance.
+  - path: tools
+    description: Workflow-owned user tools.

@@ -1,0 +1,154 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.pull-request.check
+  name: Check Pull Request
+  description: "Observe existing work, decide the next action, settle progress, and send new feedback through focused subworkflows."
+  version: 0.3.7
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.pull-request-check
+  start:
+    mode: manual
+  inputs:
+    automationKey:
+      type: string
+      required: true
+      description: Key of the automation that starts this check. The check reads and writes its checkpoint and removes it when the pull request closes.
+    projectKey:
+      type: string
+      required: true
+    remoteName:
+      type: string
+      required: true
+    owner:
+      type: string
+      required: true
+    repo:
+      type: string
+      required: true
+    prNumber:
+      type: integer
+      required: true
+    baseBranch:
+      type: string
+      required: true
+    headBranch:
+      type: string
+      required: true
+    taskKey:
+      type: string
+      required: true
+    implementationSessionUlid:
+      type: string
+      required: true
+      description: Existing implementation session. Feedback and reviews reuse the original delivery sessions.
+  outputs:
+    decision:
+      type: string
+      required: true
+  outputMappings:
+    decision: "${steps.decide.outputs.decision}"
+  steps:
+    - key: observe
+      name: Observe existing work
+      kind: subworkflow
+      workflow:
+        key: valdr-workflow.pull-request.observe
+        version: 0.1.5
+      inputs:
+        automationKey: "${workflow.inputs.automationKey}"
+        taskKey: "${workflow.inputs.taskKey}"
+        implementationSessionUlid: "${workflow.inputs.implementationSessionUlid}"
+      outputs:
+        activationId: $.normalized.child.outputs.activationId
+        roundStatus: $.normalized.child.outputs.roundStatus
+        activeSessionUlid: $.normalized.child.outputs.activeSessionUlid
+        hasActive: $.normalized.child.outputs.hasActive
+        stateVersion: $.normalized.child.outputs.stateVersion
+        state: $.normalized.child.outputs.state
+      onFailure:
+        action: fail
+    - key: decide
+      name: Choose the next action
+      kind: subworkflow
+      needs:
+        - observe
+      workflow:
+        key: valdr-workflow.pull-request.decide
+        version: 0.1.5
+      inputs:
+        owner: "${workflow.inputs.owner}"
+        repo: "${workflow.inputs.repo}"
+        roundStatus: "${steps.observe.outputs.roundStatus}"
+        hasActive: "${steps.observe.outputs.hasActive}"
+        prNumber: "${workflow.inputs.prNumber}"
+        state: "${steps.observe.outputs.state}"
+      outputs:
+        decision: $.normalized.child.outputs.decision
+        cancelRound: $.normalized.child.outputs.cancelRound
+        prOutcome: $.normalized.child.outputs.prOutcome
+        notice: $.normalized.child.outputs.notice
+        noticeTarget: $.normalized.child.outputs.noticeTarget
+        requestId: $.normalized.child.outputs.requestId
+        nextState: $.normalized.child.outputs.nextState
+      onFailure:
+        action: fail
+    - key: settle
+      name: Save progress and handle cleanup
+      kind: subworkflow
+      needs:
+        - decide
+      workflow:
+        key: valdr-workflow.pull-request.settle
+        version: 0.1.5
+      inputs:
+        automationKey: "${workflow.inputs.automationKey}"
+        activationId: "${steps.observe.outputs.activationId}"
+        stateVersion: "${steps.observe.outputs.stateVersion}"
+        nextState: "${steps.decide.outputs.nextState}"
+        owner: "${workflow.inputs.owner}"
+        repo: "${workflow.inputs.repo}"
+        taskKey: "${workflow.inputs.taskKey}"
+        decision: "${steps.decide.outputs.decision}"
+        cancelRound: "${steps.decide.outputs.cancelRound}"
+        prOutcome: "${steps.decide.outputs.prOutcome}"
+        notice: "${steps.decide.outputs.notice}"
+        noticeTarget: "${steps.decide.outputs.noticeTarget}"
+        activeSessionUlid: "${steps.observe.outputs.activeSessionUlid}"
+        hasActive: "${steps.observe.outputs.hasActive}"
+        prNumber: "${workflow.inputs.prNumber}"
+      onFailure:
+        action: fail
+    - key: dispatch
+      name: Send feedback to the existing session
+      kind: subworkflow
+      needs:
+        - settle
+      workflow:
+        key: valdr-workflow.pull-request.dispatch
+        version: 0.2.2
+      inputs:
+        automationKey: "${workflow.inputs.automationKey}"
+        activationId: "${steps.observe.outputs.activationId}"
+        stateVersion: "${steps.observe.outputs.stateVersion}"
+        nextState: "${steps.decide.outputs.nextState}"
+        owner: "${workflow.inputs.owner}"
+        repo: "${workflow.inputs.repo}"
+        remoteName: "${workflow.inputs.remoteName}"
+        headBranch: "${workflow.inputs.headBranch}"
+        taskKey: "${workflow.inputs.taskKey}"
+        implementationSessionUlid: "${workflow.inputs.implementationSessionUlid}"
+        prNumber: "${workflow.inputs.prNumber}"
+        decision: "${steps.decide.outputs.decision}"
+        taskContext: "TASK-${workflow.inputs.taskKey}"
+      onFailure:
+        action: fail
+      when:
+        - kind: value_in
+          value: "${steps.decide.outputs.decision}"
+          allowed:
+            - dispatch
+            - review
+            - revise
+            - publish

@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.sprint.from-tasks
   name: Execute Sprint From Tasks
   description: Create and execute one sprint from an explicit ordered task list.
-  version: 0.18.0
+  version: 0.18.3
   pack: valdr-workflow
   source:
     kind: capability
@@ -67,7 +67,7 @@ workflow:
       needs: [create_sprint]
       workflow:
         key: valdr-workflow.sprint.execute
-        version: 0.16.0
+        version: 0.16.3
       inputs:
         sprintId: "${steps.create_sprint.outputs.sprintId}"
         projectKey: "${workflow.inputs.projectKey}"

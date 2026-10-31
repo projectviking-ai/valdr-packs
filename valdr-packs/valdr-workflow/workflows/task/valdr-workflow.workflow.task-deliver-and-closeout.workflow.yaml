@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.task.deliver-and-closeout
   name: Deliver And Close Out Task
   description: Deliver one prepared task, then close exactly that completed delivery run.
-  version: 0.5.0
+  version: 0.5.3
   pack: valdr-workflow
   source:
     kind: capability
@@ -38,7 +38,7 @@ workflow:
     - key: deliver
       name: Deliver task
       kind: subworkflow
-      workflow: { key: valdr-workflow.task.deliver, version: 0.11.0 }
+      workflow: { key: valdr-workflow.task.deliver, version: 0.11.3 }
       inputs:
         taskKey: "${workflow.inputs.taskKey}"
         routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"

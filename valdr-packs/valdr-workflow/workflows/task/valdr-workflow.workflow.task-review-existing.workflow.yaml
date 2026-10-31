@@ -1,0 +1,56 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.task.review-existing
+  name: Review With Existing Task Sessions
+  description: Find every original reviewer, reuse those sessions, and wait for fresh decisions on the existing assignments.
+  version: 0.1.0
+  pack: valdr-workflow
+  source: { kind: capability, capabilityKey: valdr-workflow.workflow.task-review-existing }
+  start: { mode: manual }
+  inputs:
+    taskKey: { type: string, required: true }
+    sourceSessionUlid: { type: string, required: true }
+    reviewId: { type: string, required: true }
+    assignments: { type: array, required: true }
+  outputs:
+    children: { type: array, required: true }
+    reviewers: { type: array, required: true }
+  outputMappings:
+    children: "${steps.reviewers.outputs.children}"
+    reviewers: "${steps.find.outputs.reviewers}"
+  steps:
+    - key: find
+      name: Find the original reviewers
+      kind: subworkflow
+      workflow: { key: valdr-workflow.task.find-reviewers, version: 0.1.0 }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+        reviewId: "${workflow.inputs.reviewId}"
+        assignments: "${workflow.inputs.assignments}"
+      outputs:
+        reviewers: $.normalized.child.outputs.reviewers
+    - key: mark_in_review
+      name: Mark the task in review
+      kind: tool
+      needs: [find]
+      tool: { id: pm_task, action: change_status }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: in_review
+        reason: Implementation revised; reusing the original reviewers.
+    - key: reviewers
+      name: Request each fresh review
+      kind: subworkflow
+      needs: [mark_in_review]
+      workflow: { key: valdr-workflow.task.rereview, version: 0.1.0 }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+        reviewId: "${workflow.inputs.reviewId}"
+      forEach:
+        items: "${steps.find.outputs.reviewers}"
+        itemName: reviewer
+        maxConcurrent: 1
+      outputs:
+        children: $.normalized.children
