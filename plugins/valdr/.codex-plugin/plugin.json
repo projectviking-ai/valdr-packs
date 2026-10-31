@@ -1,6 +1,6 @@
 {
   "name": "valdr",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Valdr skills for agent persona loading, planning, execution, review, auditing, orchestration, and workflow-tool authoring.",
   "author": { "name": "ProjectViking.ai" },
   "repository": "https://github.com/projectviking-ai/valdr-packs",

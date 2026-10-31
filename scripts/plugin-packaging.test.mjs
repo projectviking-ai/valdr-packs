@@ -68,9 +68,11 @@ test('Codex starter prompts bind to the installed plugin skill names', () => {
   }
 });
 
-test('bundled public skills and resources match the canonical sources', () => {
-  const result = spawnSync(process.execPath, ['scripts/sync-plugin.mjs', '--check'], { cwd: root, encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
+test('public plugin contains exactly seven skill entrypoints and the license', () => {
+  const names = ['valdr-agent', 'valdr-auditor', 'valdr-executor', 'valdr-orchestrator', 'valdr-planner', 'valdr-reviewer', 'valdr-workflow-tools'];
+  assert.deepEqual(fs.readdirSync(path.join(plugin, 'skills')).sort(), names);
+  for (const name of names) assert(fs.readFileSync(path.join(plugin, 'skills', name, 'SKILL.md'), 'utf8').startsWith(`---\nname: ${name}\n`), name);
+  assert(fs.readFileSync(path.join(root, 'LICENSE')).equals(fs.readFileSync(path.join(plugin, 'LICENSE'))));
 });
 
 test('CLI discovery works from an installed skill with a user-supplied manifest', t => {

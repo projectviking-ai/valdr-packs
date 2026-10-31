@@ -25,8 +25,8 @@ test("release workflow is scoped to main pushes with release-affecting path filt
   const workflow = fs.readFileSync(workflowPath, "utf8");
 
   assert.match(workflow, /push:\n\s+branches:\n\s+- main/);
-  assert.match(workflow, /paths:\n\s+- skills\/\*\*\n\s+- commands\/\*\*\n\s+- valdr-packs\/valdr\/\*\*\n\s+- valdr-packs\/valdr-workflow\/\*\*\n\s+- valdr-packs\/valdr-tools\/\*\*\n\s+- scripts\/build-valdr-tier\.mjs\n\s+- scripts\/generate-valdr-pack\.mjs\n\s+- scripts\/generate-user-workflow-cli-tools\.mjs\n\s+- scripts\/validate-valdr-pack\.mjs\n\s+- scripts\/lib\/\*\*\n\s+- VERSION\n\s+- VALDR_WORKFLOW_CLI_VERSION\n\s+- Makefile\n\s+- \.github\/workflows\/release\.yml\n\npermissions:/);
-  assert.doesNotMatch(workflow, /README\.md/);
+  assert.match(workflow, /paths:\n\s+- valdr-packs\/valdr\/\*\*\n\s+- valdr-packs\/valdr-workflow\/\*\*\n\s+- valdr-packs\/valdr-tools\/\*\*\n\s+- scripts\/build-valdr-tier\.mjs\n\s+- scripts\/generate-valdr-pack\.mjs\n\s+- scripts\/generate-user-workflow-cli-tools\.mjs\n\s+- scripts\/validate-valdr-pack\.mjs\n\s+- scripts\/lib\/\*\*\n\s+- VERSION\n\s+- VALDR_WORKFLOW_CLI_VERSION\n\s+- Makefile\n\s+- \.github\/workflows\/release\.yml\n\npermissions:/);
+  assert.doesNotMatch(workflow, /README\.md|plugins\/|skills\/|commands\//);
   assert.doesNotMatch(workflow, /workflow_dispatch:|\n\s+tags:/);
 });
 

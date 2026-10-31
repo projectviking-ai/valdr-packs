@@ -6,13 +6,13 @@ Skills for operating the Valdr PM MCP server. Each skill is a focused instructio
 
 | Skill | Description | Entrypoint |
 |-------|-------------|------------|
-| `valdr-agent` | Load and adopt a registered agent persona by handle | `valdr-agent/SKILL.md` |
-| `valdr-auditor` | Session auditing: evaluate agent work and persist audit score runs | `valdr-auditor/SKILL.md` |
-| `valdr-executor` | Task execution: fetch tasks, execute work, update checklists | `valdr-executor/SKILL.md` |
-| `valdr-orchestrator` | Unified orchestrator routing across PM navigation, registry, and sprint workflows | `valdr-orchestrator/SKILL.md` |
-| `valdr-planner` | VMP structured planning: plans, specs, requirements, tasks | `valdr-planner/SKILL.md` |
-| `valdr-workflow-tools` | Author portable local code and CLI tools, inventories, contracts and pack updates | `valdr-workflow-tools/SKILL.md` |
-| `valdr-reviewer` | Code review workflow: reviews, lightweight review scoring, verification gate | `valdr-reviewer/SKILL.md` |
+| `valdr-agent` | Load and adopt a registered agent persona by handle | `skills/valdr-agent/SKILL.md` |
+| `valdr-auditor` | Session auditing: evaluate agent work and persist audit score runs | `skills/valdr-auditor/SKILL.md` |
+| `valdr-executor` | Task execution: fetch tasks, execute work, update checklists | `skills/valdr-executor/SKILL.md` |
+| `valdr-orchestrator` | Unified orchestrator routing across PM navigation, registry, and sprint workflows | `skills/valdr-orchestrator/SKILL.md` |
+| `valdr-planner` | VMP structured planning: plans, specs, requirements, tasks | `skills/valdr-planner/SKILL.md` |
+| `valdr-workflow-tools` | Author portable local code and CLI tools, inventories, contracts and pack updates | `skills/valdr-workflow-tools/SKILL.md` |
+| `valdr-reviewer` | Code review workflow: reviews, lightweight review scoring, verification gate | `skills/valdr-reviewer/SKILL.md` |
 
 ## Skill Selection Guide
 

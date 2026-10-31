@@ -53,9 +53,14 @@ sync-skills:
 	@set -e; \
 	for dest in .agents/skills .claude/skills .gemini/skills; do \
 		mkdir -p "$$dest"; \
-		for source in skills/valdr-*; do \
+		for source in plugins/valdr/skills/valdr-*; do \
 			[ -d "$$source" ] || continue; \
 			rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+			metadata="$$dest/$${source##*/}/agents/openai.yaml"; \
+			if [ -f "$$metadata" ]; then \
+				sed 's/[$$]valdr:valdr-/$$valdr-/g' "$$metadata" > "$$metadata.tmp"; \
+				mv "$$metadata.tmp" "$$metadata"; \
+			fi; \
 		done; \
 	done
 
@@ -63,18 +68,28 @@ sync-skills-agent:
 	@set -e; \
 	dest="$(HOME)/.agents/skills"; \
 	mkdir -p "$$dest"; \
-	for source in skills/valdr-*; do \
+	for source in plugins/valdr/skills/valdr-*; do \
 		[ -d "$$source" ] || continue; \
 		rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+		metadata="$$dest/$${source##*/}/agents/openai.yaml"; \
+		if [ -f "$$metadata" ]; then \
+			sed 's/[$$]valdr:valdr-/$$valdr-/g' "$$metadata" > "$$metadata.tmp"; \
+			mv "$$metadata.tmp" "$$metadata"; \
+		fi; \
 	done
 
 sync-skills-claude:
 	@set -e; \
 	dest="$(HOME)/.claude/skills"; \
 	mkdir -p "$$dest"; \
-	for source in skills/valdr-*; do \
+	for source in plugins/valdr/skills/valdr-*; do \
 		[ -d "$$source" ] || continue; \
 		rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+		metadata="$$dest/$${source##*/}/agents/openai.yaml"; \
+		if [ -f "$$metadata" ]; then \
+			sed 's/[$$]valdr:valdr-/$$valdr-/g' "$$metadata" > "$$metadata.tmp"; \
+			mv "$$metadata.tmp" "$$metadata"; \
+		fi; \
 	done
 
 sync-skills-codex: sync-skills-agent
@@ -84,9 +99,14 @@ sync-skills-gemini:
 	@set -e; \
 	dest="$(HOME)/.gemini/skills"; \
 	mkdir -p "$$dest"; \
-	for source in skills/valdr-*; do \
+	for source in plugins/valdr/skills/valdr-*; do \
 		[ -d "$$source" ] || continue; \
 		rsync -a --delete "$$source/" "$$dest/$${source##*/}/"; \
+		metadata="$$dest/$${source##*/}/agents/openai.yaml"; \
+		if [ -f "$$metadata" ]; then \
+			sed 's/[$$]valdr:valdr-/$$valdr-/g' "$$metadata" > "$$metadata.tmp"; \
+			mv "$$metadata.tmp" "$$metadata"; \
+		fi; \
 	done
 
 validate-valdr-pack:

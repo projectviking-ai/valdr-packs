@@ -29,16 +29,19 @@ function seedDestination(directory, destination) {
   write(directory, `${destination}/custom-skill/SKILL.md`, 'User skill');
 }
 
-function verifyDestination(directory, destination) {
+function verifyDestination(directory, destination, source = directory) {
   assert.equal(fs.readFileSync(path.join(directory, destination, 'valdr-managed/SKILL.md'), 'utf8'), 'Current source skill');
   assert.equal(fs.existsSync(path.join(directory, destination, 'valdr-managed/stale.txt')), false);
+  assert.equal(fs.readFileSync(path.join(directory, destination, 'valdr-managed/agents/openai.yaml'), 'utf8'), 'interface:\n  default_prompt: "Use $valdr-managed to inspect this task."\n');
+  assert.match(fs.readFileSync(path.join(source, 'plugins/valdr/skills/valdr-managed/agents/openai.yaml'), 'utf8'), /\$valdr:valdr-managed/);
   assert.equal(fs.readFileSync(path.join(directory, destination, 'valdr-evals/SKILL.md'), 'utf8'), 'Repository-only evaluation skill');
   assert.equal(fs.readFileSync(path.join(directory, destination, 'custom-skill/SKILL.md'), 'utf8'), 'User skill');
 }
 
 test('project skill sync replaces managed contents and preserves repository-only skills', t => {
   const directory = workspace(t);
-  write(directory, 'skills/valdr-managed/SKILL.md', 'Current source skill');
+  write(directory, 'plugins/valdr/skills/valdr-managed/SKILL.md', 'Current source skill');
+  write(directory, 'plugins/valdr/skills/valdr-managed/agents/openai.yaml', 'interface:\n  default_prompt: "Use $valdr:valdr-managed to inspect this task."\n');
   const destinations = ['.agents/skills', '.claude/skills', '.gemini/skills'];
   for (const destination of destinations) seedDestination(directory, destination);
   execFileSync('make', ['sync-skills'], { cwd: directory, stdio: 'pipe' });
@@ -60,8 +63,9 @@ for (const [target, destination] of [
 ]) test(`${target} preserves skills absent from this repository's source`, t => {
   const directory = workspace(t);
   const temporaryHome = path.join(directory, 'home');
-  write(directory, 'skills/valdr-managed/SKILL.md', 'Current source skill');
+  write(directory, 'plugins/valdr/skills/valdr-managed/SKILL.md', 'Current source skill');
+  write(directory, 'plugins/valdr/skills/valdr-managed/agents/openai.yaml', 'interface:\n  default_prompt: "Use $valdr:valdr-managed to inspect this task."\n');
   seedDestination(temporaryHome, destination);
   execFileSync('make', [target, `HOME=${temporaryHome}`], { cwd: directory, stdio: 'pipe' });
-  verifyDestination(temporaryHome, destination);
+  verifyDestination(temporaryHome, destination, directory);
 });

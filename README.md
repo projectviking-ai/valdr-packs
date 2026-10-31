@@ -46,7 +46,7 @@ codex plugin marketplace add projectviking-ai/valdr-packs
 codex plugin add valdr@valdr-packs
 ```
 
-Start a new session or chat after installation. Both plugins include all seven public skills and use your existing Valdr MCP connection. They do not import Valdr packs or configure credentials. See the [skills installation guide](skills/README.md#installation) for prerequisites and migration from standalone copies.
+Start a new session or chat after installation. Both plugins include all seven public skills and use your existing Valdr MCP connection. They do not import Valdr packs or configure credentials. See the [skills installation guide](plugins/valdr/README.md#installation) for prerequisites and migration from standalone copies.
 
 ### Source checkout skills
 
@@ -87,15 +87,16 @@ bun evals/run.mjs run task-repair --scenario 01_exact_replacement --dry-run
 
 ```
 valdr-packs/
-├── skills/                    # Shared skill sources for all assistants
-│   ├── valdr-agent/           # Load any registered agent persona by handle
-│   ├── valdr-auditor/         # Session auditing & scoring
-│   ├── valdr-executor/        # Task execution & lifecycle
-│   ├── valdr-orchestrator/    # Unified orchestrator routing
-│   ├── valdr-planner/         # VMP feature planning
-│   ├── valdr-reviewer/        # Code review & quality gates
-│   ├── valdr-workflow-tools/  # Workflow-tool authoring
-│   └── README.md              # Skill index and installation notes
+├── plugins/valdr/             # Public plugin and canonical skill sources
+│   ├── skills/
+│   │   ├── valdr-agent/       # Load any registered agent persona by handle
+│   │   ├── valdr-auditor/     # Session auditing & scoring
+│   │   ├── valdr-executor/    # Task execution & lifecycle
+│   │   ├── valdr-orchestrator/ # Unified orchestrator routing
+│   │   ├── valdr-planner/     # VMP feature planning
+│   │   ├── valdr-reviewer/    # Code review & quality gates
+│   │   └── valdr-workflow-tools/ # Workflow-tool authoring
+│   └── README.md             # Skill index and installation notes
 │
 ├── scripts/                   # Build & packaging tooling
 │   ├── build-valdr-tier.mjs   # Assemble Raider/Vanguard/Sovereign from source layers
@@ -315,7 +316,7 @@ make test-user-workflow-tools
 make build-valdr-tools
 ```
 
-See the [pack README](valdr-packs/valdr-tools/README.md) for runtime prerequisites and the [authoring skill](skills/valdr-workflow-tools/SKILL.md) for the process contract, CLI discovery, and revision updates.
+See the [pack README](valdr-packs/valdr-tools/README.md) for runtime prerequisites and the [authoring skill](plugins/valdr/skills/valdr-workflow-tools/SKILL.md) for the process contract, CLI discovery, and revision updates.
 
 ## Creating Your Own Pack
 
@@ -403,7 +404,7 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## Design Principles
 
-1. **Single source of truth** — Write once in `skills/`, deploy everywhere
+1. **Single source of truth** — Maintain skills in `plugins/valdr/skills/`, deploy everywhere
 2. **Platform-native** — Use each platform's native format where supported
 3. **Safe syncing** — Only touch `valdr-*` files, preserve user content
 4. **Hot-load, don't bloat** — Skills load detailed docs on-demand via capabilities
@@ -421,7 +422,7 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 ## Contributing
 
 1. Fork this repository
-2. Add skills to `skills/`
+2. Add skills to `plugins/valdr/skills/`
 3. Run `make sync-skills`
 4. Test with `make sync-all`
 5. Submit a PR
