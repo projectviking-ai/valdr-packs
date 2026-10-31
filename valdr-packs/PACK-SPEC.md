@@ -99,7 +99,7 @@ includes:
 
 ## Executable user workflow tools
 
-The standalone `valdr-packs/valdr-tools` pack is the canonical source for language starters and CLI adapters. A tool manifest declares a pack-first `<pack>.user.<name>` identity, revision, name, actions and schemas, explicit file inventory, process argv/environment names, and resource limits. Optional top-level `icon` selects a named Heroicon; omitted or unknown names use the default tool icon. Validate manifests with `valdr validate-pack`; use the [authoring skill](../skills/valdr-workflow-tools/SKILL.md) for process and update requirements.
+The standalone `valdr-packs/valdr-tools` pack is the canonical source for language starters and CLI adapters. A tool manifest declares a pack-first `<pack>.user.<name>` identity, revision, name, actions and schemas, explicit file inventory, process argv/environment names, and resource limits. Optional top-level `icon` selects a named Heroicon; omitted or unknown names use the default tool icon. Validate manifests with `valdr validate-pack`; use the [authoring skill](../plugins/valdr/skills/valdr-workflow-tools/SKILL.md) for process and update requirements.
 
 A source archive carries negotiated `userTools.version: 1` entries with tool ID, revision, content hash, manifest path and owning pack key. The original manifest and all inventoried files are retained. Older readers that do not understand this metadata must reject the archive. Use a compatible Valdr CLI to validate and generate executable-tool archives.
 

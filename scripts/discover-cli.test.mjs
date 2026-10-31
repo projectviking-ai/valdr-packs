@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseGhReference, parseCobraHelp, classify, coverageStatus } from '../skills/valdr-workflow-tools/scripts/discover-cli.mjs';
+import { parseGhReference, parseCobraHelp, classify, coverageStatus } from '../plugins/valdr/skills/valdr-workflow-tools/scripts/discover-cli.mjs';
 
 test('gh reference inventory retains groups, leaves and aliases without flag syntax', () => {
   assert.deepEqual(parseGhReference('# gh reference\n\n## gh repo <command>\n\nAliases\n\ngh repos\n\n### gh repo view [<repository>] [flags]\n\nDescription\n'), [

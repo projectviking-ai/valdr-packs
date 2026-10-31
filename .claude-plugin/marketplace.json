@@ -1,0 +1,12 @@
+{
+  "name": "valdr-packs",
+  "description": "Public Valdr agent persona, operator, and workflow-tool authoring skills.",
+  "owner": { "name": "ProjectViking.ai" },
+  "plugins": [
+    {
+      "name": "valdr",
+      "description": "Valdr agent persona, operator, and workflow-tool authoring skills.",
+      "source": "./plugins/valdr"
+    }
+  ]
+}

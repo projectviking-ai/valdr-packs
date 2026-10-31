@@ -64,7 +64,7 @@ The source generator, `scripts/generate-user-workflow-cli-tools.mjs`, emits `too
 
 After reviewing source changes, run `bun scripts/generate-user-workflow-cli-tools.mjs`; use `--check` to verify both manifests and runners. Bump the affected tool's revision whenever its generated content changes. A shared generator change needs new revisions only for tools whose emitted files change. Preserve any user edits before regenerating.
 
-Keep CLI discovery evidence in a local directory outside the executable pack. Review captures for host-specific details and user aliases before sharing them. It records supported and unsupported command paths and explicit gaps; the small starter catalog does not claim every CLI command is executable. Follow the [discovery reference](../../skills/valdr-workflow-tools/references/cli-discovery.md) to extend the supported surface.
+Keep CLI discovery evidence in a local directory outside the executable pack. Review captures for host-specific details and user aliases before sharing them. It records supported and unsupported command paths and explicit gaps; the small starter catalog does not claim every CLI command is executable. Follow the [discovery reference](../../plugins/valdr/skills/valdr-workflow-tools/references/cli-discovery.md) to extend the supported surface.
 
 ## Maven builds
 
@@ -261,6 +261,6 @@ The optional top-level `icon` is a named Heroicon, such as `code-bracket`; omitt
 
 New manifests omit `process.cwd`; its optional legacy value is ignored. Exact inventoried file arguments resolve beneath the retained tool root, so a dispatcher can run in a project directory. Step-level `cwd` accepts expressions and is separate from action `inputs`. No project key or workflow context is added to the JSON request.
 
-To author a new action, use [the workflow-tool authoring skill](../../skills/valdr-workflow-tools/SKILL.md). Validate manifests with `valdr validate-pack`; see the [custom-tool documentation](https://valdr.ai/valdr/docs/workflows/user-tools/) for the full authoring guide.
+To author a new action, use [the workflow-tool authoring skill](../../plugins/valdr/skills/valdr-workflow-tools/SKILL.md). Validate manifests with `valdr validate-pack`; see the [custom-tool documentation](https://valdr.ai/valdr/docs/workflows/user-tools/) for the full authoring guide.
 
 CLI failures retain the child exit code, signal, and a bounded error message. The generated runners reuse Valdr’s redactor before shortening stderr; failed or overflowing captures are omitted. A failed Jira action also checks `acli jira auth status` for up to five seconds and includes only a failed diagnostic; successful authentication output is never returned. This check does not log in or change authentication.

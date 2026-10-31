@@ -1,0 +1,7 @@
+interface:
+  display_name: "Valdr Agent"
+  short_description: "Load a registered Valdr agent persona by handle"
+  icon_small: "./assets/small-logo.png"
+  icon_large: "./assets/large-logo.png"
+  brand_color: "#2563EB"
+  default_prompt: "Use $valdr:valdr-agent with sigrid to load the registered reviewer persona."

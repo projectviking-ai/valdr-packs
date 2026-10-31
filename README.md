@@ -1,6 +1,6 @@
 # valdr-packs
 
-Distributable agent packs, skills, and commands for [Valdr](https://valdr.ai
+Distributable agent packs and skills for [Valdr](https://valdr.ai
 ) — the control plane for AI agents. Write once, deploy to Claude Code, Codex, and Gemini CLI.
 
 Valdr packs are portable, self-describing bundles of agents, prompts, and capabilities. Import one and get a complete roster of agents with their capabilities, orchestration wiring, and domain knowledge ready to work.
@@ -29,6 +29,24 @@ Valdr 0.3.4 supports Claude, Codex, OpenCode, and Ollama sessions. Direct Gemini
 Session input defaults to queued follow-ups. `delivery: "steer"` redirects an active supported Codex/Claude ad-hoc turn; workflow-owned input remains queued. External Gemini CLI skill installation remains supported.
 
 Pull-request workflows default `remoteName` to `origin`, preserve the actual checked-out base branch when no base is supplied, and propose draft pull requests by default. Supply another remote name explicitly when the project uses a different Git remote. Proposal publication always requires the named human operator's approval.
+
+### Install skills as a plugin
+
+Claude Code:
+
+```text
+/plugin marketplace add projectviking-ai/valdr-packs
+/plugin install valdr@valdr-packs
+```
+
+Codex:
+
+```bash
+codex plugin marketplace add projectviking-ai/valdr-packs
+codex plugin add valdr@valdr-packs
+```
+
+Start a new session or chat after installation. Both plugins include all seven public skills and use your existing Valdr MCP connection. They do not import Valdr packs or configure credentials. See the [skills installation guide](plugins/valdr/README.md#installation) for prerequisites and migration from standalone copies.
 
 ### Source checkout skills
 
@@ -69,16 +87,16 @@ bun evals/run.mjs run task-repair --scenario 01_exact_replacement --dry-run
 
 ```
 valdr-packs/
-├── commands/                  # User-invoked slash commands (source of truth)
-│   └── valdr-agent.md         # /valdr-agent <handle> — load an agent persona
-│
-├── skills/                    # Model-invoked skills (source of truth)
-│   ├── valdr-auditor/         # Session auditing & scoring
-│   ├── valdr-executor/        # Task execution & lifecycle
-│   ├── valdr-orchestrator/    # Unified orchestrator routing
-│   ├── valdr-planner/         # VMP feature planning
-│   ├── valdr-reviewer/        # Code review & quality gates
-│   └── README.md              # Skill index and installation notes
+├── plugins/valdr/             # Public plugin and canonical skill sources
+│   ├── skills/
+│   │   ├── valdr-agent/       # Load any registered agent persona by handle
+│   │   ├── valdr-auditor/     # Session auditing & scoring
+│   │   ├── valdr-executor/    # Task execution & lifecycle
+│   │   ├── valdr-orchestrator/ # Unified orchestrator routing
+│   │   ├── valdr-planner/     # VMP feature planning
+│   │   ├── valdr-reviewer/    # Code review & quality gates
+│   │   └── valdr-workflow-tools/ # Workflow-tool authoring
+│   └── README.md             # Skill index and installation notes
 │
 ├── scripts/                   # Build & packaging tooling
 │   ├── build-valdr-tier.mjs   # Assemble Raider/Vanguard/Sovereign from source layers
@@ -110,39 +128,21 @@ valdr-packs/
 
 ## What's Inside
 
-### Commands
-
-Commands are explicit user actions invoked via `/command-name`. Defined once in `commands/`, deployed everywhere.
-
-| Command | Invocation | Description |
-|---------|------------|-------------|
-| `valdr-agent` | `/valdr-agent <handle>` | Load an agent persona from the Valdr registry |
-
-```
-/valdr-agent sigrid    # Load the Sigrid reviewer persona
-/valdr-agent freya     # Load the Freya planner persona
-/valdr-agent gunnar    # Load the Gunnar orchestrator persona
-```
-
 ### Skills
 
 Skills teach agents specialized knowledge. They activate automatically when the model detects relevance — no manual invocation needed.
 
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
+| **valdr-agent** | User asks to load or adopt a registered agent persona | Load the agent prompt by handle and follow its persona |
 | **valdr-executor** | User asks to execute, run, or complete a task | Fetch tasks, execute work, update checklists, change status |
 | **valdr-planner** | Work needs structure, requirements, or stakeholder visibility | VMP structured planning with specs and task generation |
 | **valdr-reviewer** | User asks to review a task, record review scores, or verify completion | Code review workflow, lightweight review scoring, verification gate |
 | **valdr-auditor** | User asks to audit a session or evaluate agent work | Session evaluation, audit score runs, evidence-backed verdicts |
 | **valdr-orchestrator** | User needs PM navigation, registry operations, or sprint orchestration | Route work through Gunnar, Nikol, or Skadi and follow the selected orchestrator prompt |
+| **valdr-workflow-tools** | User authors or updates a workflow tool | Build typed CLI and code tools with explicit execution contracts |
 
-### Commands vs Skills
-
-| | Commands | Skills |
-|---|---------|--------|
-| **Trigger** | User types `/command-name` | Model detects relevance automatically |
-| **Structure** | Single `.md` file | Folder with `SKILL.md` and optional `agents/` or `assets/` |
-| **Example** | `/valdr-agent sigrid` | Auto-activates for task execution |
+Load a registered persona with `/valdr:valdr-agent sigrid` in the Claude Code plugin, or ask Codex to `Use $valdr:valdr-agent with sigrid`. Standalone skills use `/valdr-agent sigrid` in Claude Code or `$valdr-agent` in Codex.
 
 ## Three-Tier Pack System
 
@@ -217,8 +217,8 @@ An independently versioned companion to Sovereign that adds workflow definitions
 
 | Platform | Skills | Install Location |
 |----------|--------|------------------|
-| **Claude Code** | Native folders | `~/.claude/skills/` |
-| **Codex** | Native folders | `~/.agents/skills/` |
+| **Claude Code** | `valdr` plugin or native folders | Plugin cache or `~/.claude/skills/` |
+| **Codex** | `valdr` plugin or native folders | Plugin cache or `~/.agents/skills/` |
 | **Gemini CLI** | Native folders | `~/.gemini/skills/` |
 
 ## Building & Syncing
@@ -316,7 +316,7 @@ make test-user-workflow-tools
 make build-valdr-tools
 ```
 
-See the [pack README](valdr-packs/valdr-tools/README.md) for runtime prerequisites and the [authoring skill](skills/valdr-workflow-tools/SKILL.md) for the process contract, CLI discovery, and revision updates.
+See the [pack README](valdr-packs/valdr-tools/README.md) for runtime prerequisites and the [authoring skill](plugins/valdr/skills/valdr-workflow-tools/SKILL.md) for the process contract, CLI discovery, and revision updates.
 
 ## Creating Your Own Pack
 
@@ -404,7 +404,7 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 
 ## Design Principles
 
-1. **Single source of truth** — Write once in `commands/` or `skills/`, deploy everywhere
+1. **Single source of truth** — Maintain skills in `plugins/valdr/skills/`, deploy everywhere
 2. **Platform-native** — Use each platform's native format where supported
 3. **Safe syncing** — Only touch `valdr-*` files, preserve user content
 4. **Hot-load, don't bloat** — Skills load detailed docs on-demand via capabilities
@@ -422,7 +422,7 @@ All sync operations **only affect `valdr-*` files**. Your custom commands and sk
 ## Contributing
 
 1. Fork this repository
-2. Add commands to `commands/` or skills to `skills/`
+2. Add skills to `plugins/valdr/skills/`
 3. Run `make sync-skills`
 4. Test with `make sync-all`
 5. Submit a PR
