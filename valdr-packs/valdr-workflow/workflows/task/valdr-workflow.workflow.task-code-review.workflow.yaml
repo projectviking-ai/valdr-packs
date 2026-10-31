@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.task.code-review
   name: Code Review Task
   description: Mark a task in review, launch a named reviewer against an existing implementation session, and wait for one published review verdict.
-  version: 0.4.0
+  version: 0.4.1
   pack: valdr-workflow
   source:
     kind: capability
@@ -77,6 +77,10 @@ workflow:
           Task ${workflow.inputs.taskKey}
           Use reviewId: ${workflow.inputs.reviewId}
           Use assignmentId: ${workflow.inputs.assignment.id}
+          Do not send a message or pm_session input to the implementation session, request another review,
+          launch sessions, change task status, edit files, commit, or push. This workflow owns coordination
+          and will send any requested changes to the existing implementation session.
+          Finish after publishing your decision; do not wait for the implementer.
       waitsFor:
         kind: workflow_input
         expected:

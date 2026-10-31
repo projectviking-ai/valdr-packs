@@ -1,0 +1,265 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.pull-request.settle
+  name: Settle Pull Request Check
+  description: "Stop linked active work when needed, report a failure, save progress, or close the task and remove its watch."
+  version: 0.1.5
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.pull-request-settle
+  start:
+    mode: manual
+  inputs:
+    automationKey:
+      type: string
+      required: true
+    activationId:
+      type: string
+      required: true
+    stateVersion:
+      type: integer
+      required: true
+    nextState:
+      type: object
+      required: true
+    owner:
+      type: string
+      required: true
+    repo:
+      type: string
+      required: true
+    taskKey:
+      type: string
+      required: true
+    decision:
+      type: string
+      required: true
+    cancelRound:
+      type: string
+      required: true
+    prOutcome:
+      type: string
+      required: true
+    notice:
+      type: string
+      required: true
+    noticeTarget:
+      type: string
+      required: true
+    activeSessionUlid:
+      type: string
+      required: true
+    hasActive:
+      type: string
+      required: true
+    prNumber:
+      type: integer
+      required: true
+  outputs:
+    decision:
+      type: string
+      required: true
+  outputMappings:
+    decision: "${workflow.inputs.decision}"
+  steps:
+    - key: request_id
+      name: Generate request id
+      kind: tool
+      tool:
+        id: pm_generate_ulid
+        action: call
+      inputs: {}
+      outputs:
+        ulid: $.raw.ulid
+      onFailure:
+        action: fail
+    - key: cancel_session
+      name: Stop an active delivery session
+      kind: tool
+      when:
+        - kind: value_in
+          value: "${workflow.inputs.cancelRound}"
+          allowed:
+            - "yes"
+        - kind: value_in
+          value: "${workflow.inputs.hasActive}"
+          allowed:
+            - "yes"
+      tool:
+        id: pm_session
+        action: abort
+      inputs:
+        sessionUlid: "${workflow.inputs.activeSessionUlid}"
+      onFailure:
+        action: fail
+      needs:
+        - request_id
+    - key: load_task
+      name: Read the task status
+      kind: tool
+      needs:
+        - cancel_session
+      when:
+        - kind: value_in
+          value: "${workflow.inputs.decision}"
+          allowed:
+            - closed
+        - kind: value_in
+          value: "${workflow.inputs.hasActive}"
+          allowed:
+            - "no"
+      tool:
+        id: pm_task
+        action: get
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+      outputs:
+        status: $.normalized.task.status
+      onFailure:
+        action: fail
+    - key: mark_done
+      name: Mark the task done
+      kind: tool
+      needs:
+        - load_task
+      when:
+        - kind: value_in
+          value: "${workflow.inputs.decision}"
+          allowed:
+            - closed
+        - kind: value_in
+          value: "${steps.load_task.outputs.status}"
+          allowed:
+            - backlog
+            - to_do
+            - in_progress
+            - in_review
+            - verified
+        - kind: value_in
+          value: "${workflow.inputs.hasActive}"
+          allowed:
+            - "no"
+      tool:
+        id: pm_task
+        action: change_status
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        to: done
+        reason: "Pull request ${workflow.inputs.prOutcome}."
+      onFailure:
+        action: fail
+    - key: remove
+      name: Remove the automation
+      kind: tool
+      needs:
+        - mark_done
+      when:
+        - kind: value_in
+          value: "${workflow.inputs.decision}"
+          allowed:
+            - closed
+        - kind: value_in
+          value: "${workflow.inputs.hasActive}"
+          allowed:
+            - "no"
+      tool:
+        id: pm_automation
+        action: remove
+      inputs:
+        params:
+          key: "${workflow.inputs.automationKey}"
+          expectedActivationId: "${workflow.inputs.activationId}"
+          clientRequestId: "${steps.request_id.outputs.ulid}"
+      onFailure:
+        action: fail
+    - key: notify
+      name: Report the failure on the pull request
+      kind: tool
+      needs:
+        - cancel_session
+      when:
+        - kind: value_in
+          value: "${workflow.inputs.decision}"
+          allowed:
+            - report_failure
+      tool:
+        id: valdr-workflow.user.pr-feedback
+        action: comment
+        revision: 1.2.1
+        contentHash: sha256:a0bbaf0ae533ca632dd2b371977ac922b9d187bd12688ab9167bd4409e72e2a1
+        inputSchema:
+          type: object
+          properties:
+            owner:
+              type: string
+              pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+            repo:
+              type: string
+              pattern: "^[A-Za-z0-9._-]{1,100}$"
+            number:
+              type: integer
+              minimum: 1
+              maximum: 9007199254740991
+            target:
+              type: string
+              pattern: "^(ic|rv|rc|pr|notice):(0|[1-9][0-9]{0,19})$"
+            body:
+              type: string
+              minLength: 1
+              maxLength: 30000
+              pattern: \S
+              not:
+                pattern: "<!-- valdr-automation:v1|(^|[\\s\"'`(\\[<=:*_|~]|file://)(/Users/|/home/|/private/var/|/private/tmp/|C:\\\\Users\\\\)|\\b[0-7][0-9A-HJKMNP-TV-Z]{25}\\b"
+          required:
+            - owner
+            - repo
+            - number
+            - target
+            - body
+          additionalProperties: false
+        outputSchema:
+          type: object
+          properties:
+            outcome:
+              enum:
+                - posted
+                - existing
+            url:
+              type: string
+          required:
+            - outcome
+            - url
+          additionalProperties: false
+      inputs:
+        owner: "${workflow.inputs.owner}"
+        repo: "${workflow.inputs.repo}"
+        number: "${workflow.inputs.prNumber}"
+        target: "${workflow.inputs.noticeTarget}"
+        body: "${workflow.inputs.notice}"
+      onFailure:
+        action: fail
+    - key: save_state
+      name: Save the updated checkpoint
+      kind: tool
+      needs:
+        - notify
+      when:
+        - kind: value_in
+          value: "${workflow.inputs.decision}"
+          allowed:
+            - complete
+            - report_failure
+            - save
+      tool:
+        id: pm_automation
+        action: checkpoint
+      inputs:
+        params:
+          key: "${workflow.inputs.automationKey}"
+          expectedActivationId: "${workflow.inputs.activationId}"
+          expectedStateVersion: "${workflow.inputs.stateVersion}"
+          state: "${workflow.inputs.nextState}"
+          clientRequestId: "${steps.request_id.outputs.ulid}"
+      onFailure:
+        action: fail

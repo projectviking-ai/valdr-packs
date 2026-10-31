@@ -1,0 +1,288 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.pull-request.watch
+  name: Watch Pull Request
+  description: "Start following a published pull request. Confirm the pull request is open on the expected head branch, install one interval automation for it that starts pull-request.check, seed the automation's checkpoint, and return. Call it once after the pull request is published; it does not wait for feedback."
+  version: 0.3.7
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.pull-request-watch
+  start:
+    mode: manual
+  inputs:
+    projectKey:
+      type: string
+      required: true
+    remoteName:
+      type: string
+      required: false
+      default: origin
+    baseBranch:
+      type: string
+      required: true
+    headBranch:
+      type: string
+      required: true
+    prNumber:
+      type: integer
+      required: true
+    taskKey:
+      type: string
+      required: true
+    implementationSessionUlid:
+      type: string
+      required: true
+      description: Existing implementation session. Feedback and reviews reuse the original delivery sessions.
+    checkEvery:
+      type: string
+      required: false
+      default: 5m
+      description: "How often the automation checks the pull request, as a whole number of minutes, hours or days such as 5m, 2h or 1d."
+  outputs:
+    outcome:
+      type: string
+      required: true
+      description: "watchable when the automation was installed, not_open when the pull request was already merged or closed."
+    automationKey:
+      type: string
+      required: false
+    activationId:
+      type: string
+      required: false
+  outputMappings:
+    outcome: "${steps.identify.outputs.outcome}"
+    automationKey: "${steps.apply.outputs.key}"
+    activationId: "${steps.apply.outputs.activationId}"
+  steps:
+    - key: observe_remote
+      name: Observe the remote repository
+      kind: tool
+      tool:
+        id: git
+        action: remote_status
+      inputs:
+        projectKey: "${workflow.inputs.projectKey}"
+        remoteName: "${workflow.inputs.remoteName}"
+        baseBranch: "${workflow.inputs.baseBranch}"
+        headBranch: "${workflow.inputs.headBranch}"
+      outputs:
+        owner: $.normalized.repository.owner
+        repo: $.normalized.repository.name
+      onFailure:
+        action: fail
+    - key: identify
+      name: Identify the pull request
+      kind: tool
+      needs:
+        - observe_remote
+      tool:
+        id: valdr-workflow.user.pr-feedback
+        action: identify
+        revision: 1.2.1
+        contentHash: sha256:a0bbaf0ae533ca632dd2b371977ac922b9d187bd12688ab9167bd4409e72e2a1
+        inputSchema:
+          type: object
+          properties:
+            owner:
+              type: string
+              pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+            repo:
+              type: string
+              pattern: "^[A-Za-z0-9._-]{1,100}$"
+            number:
+              type: integer
+              minimum: 1
+              maximum: 9007199254740991
+            headBranch:
+              type: string
+              minLength: 1
+              maxLength: 255
+              pattern: \S
+          required:
+            - owner
+            - repo
+            - number
+            - headBranch
+          additionalProperties: false
+        outputSchema:
+          type: object
+          properties:
+            outcome:
+              enum:
+                - watchable
+                - not_open
+                - mismatch
+            owner:
+              type: string
+            repo:
+              type: string
+            automationKey:
+              type: string
+              maxLength: 200
+            resourceKey:
+              type: string
+            prState:
+              enum:
+                - open
+                - closed
+          required:
+            - outcome
+            - owner
+            - repo
+            - automationKey
+            - resourceKey
+            - prState
+          additionalProperties: false
+      inputs:
+        owner: "${steps.observe_remote.outputs.owner}"
+        repo: "${steps.observe_remote.outputs.repo}"
+        number: "${workflow.inputs.prNumber}"
+        headBranch: "${workflow.inputs.headBranch}"
+      outputs:
+        outcome: $.normalized.data.outcome
+        owner: $.normalized.data.owner
+        repo: $.normalized.data.repo
+        automationKey: $.normalized.data.automationKey
+        resourceKey: $.normalized.data.resourceKey
+      onFailure:
+        action: fail
+    - key: accept_identity
+      name: Accept the pull request identity
+      kind: condition
+      needs:
+        - identify
+      checks:
+        - kind: value_in
+          value: "${steps.identify.outputs.outcome}"
+          allowed:
+            - watchable
+            - not_open
+      onFailure:
+        action: fail
+    - key: request_id
+      name: Generate the apply request id
+      kind: tool
+      needs:
+        - accept_identity
+      when:
+        - kind: value_in
+          value: "${steps.identify.outputs.outcome}"
+          allowed:
+            - watchable
+      tool:
+        id: pm_generate_ulid
+        action: call
+      inputs: {}
+      outputs:
+        ulid: $.raw.ulid
+      onFailure:
+        action: fail
+    - key: apply
+      name: Install the pull request automation
+      kind: tool
+      needs:
+        - request_id
+      when:
+        - kind: value_in
+          value: "${steps.identify.outputs.outcome}"
+          allowed:
+            - watchable
+      tool:
+        id: pm_automation
+        action: apply
+      inputs:
+        params:
+          clientRequestId: "${steps.request_id.outputs.ulid}"
+          definition:
+            schemaVersion: "1.0"
+            automation:
+              key: "${steps.identify.outputs.automationKey}"
+              resource:
+                type: github.pull_request
+                key: "${steps.identify.outputs.resourceKey}"
+              trigger:
+                type: interval
+                every: "${workflow.inputs.checkEvery}"
+              policy:
+                overlap: skip
+                misfire: once
+              action:
+                type: workflow.start
+                workflow:
+                  key: valdr-workflow.pull-request.check
+                  version: 0.3.7
+                inputs:
+                  automationKey: "${steps.identify.outputs.automationKey}"
+                  projectKey: "${workflow.inputs.projectKey}"
+                  remoteName: "${workflow.inputs.remoteName}"
+                  owner: "${steps.identify.outputs.owner}"
+                  repo: "${steps.identify.outputs.repo}"
+                  prNumber: "${workflow.inputs.prNumber}"
+                  baseBranch: "${workflow.inputs.baseBranch}"
+                  headBranch: "${workflow.inputs.headBranch}"
+                  taskKey: "${workflow.inputs.taskKey}"
+                  implementationSessionUlid: "${workflow.inputs.implementationSessionUlid}"
+      outputs:
+        key: $.raw.key
+        activationId: $.raw.activationId
+        stateVersion: $.raw.stateVersion
+      onFailure:
+        action: fail
+    - key: seed_id
+      name: Generate the seed request id
+      kind: tool
+      needs:
+        - apply
+      when:
+        - kind: value_in
+          value: "${steps.identify.outputs.outcome}"
+          allowed:
+            - watchable
+        - kind: value_in
+          value: "${steps.apply.outputs.stateVersion}"
+          allowed:
+            - 0
+      tool:
+        id: pm_generate_ulid
+        action: call
+      inputs: {}
+      outputs:
+        ulid: $.raw.ulid
+      onFailure:
+        action: fail
+    - key: seed_state
+      name: Seed the checkpoint
+      kind: tool
+      needs:
+        - seed_id
+      when:
+        - kind: value_in
+          value: "${steps.identify.outputs.outcome}"
+          allowed:
+            - watchable
+        - kind: value_in
+          value: "${steps.apply.outputs.stateVersion}"
+          allowed:
+            - 0
+      tool:
+        id: pm_automation
+        action: checkpoint
+      inputs:
+        params:
+          key: "${steps.apply.outputs.key}"
+          expectedActivationId: "${steps.apply.outputs.activationId}"
+          expectedStateVersion: 0
+          clientRequestId: "${steps.seed_id.outputs.ulid}"
+          state:
+            v: 1
+            handled: []
+            floor: null
+            checkFix:
+              lastSha: null
+              attempts: 0
+            inFlight: null
+            hold: null
+            notices: 0
+      onFailure:
+        action: fail

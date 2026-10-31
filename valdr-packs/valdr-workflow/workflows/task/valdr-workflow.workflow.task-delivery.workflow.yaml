@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.task.deliver
   name: Deliver Task
   description: Take one prepared task from to-do to verified. Reads the executor and reviewer that prep already staffed, picks a launcher preset, then implements and reviews, looping on requested changes.
-  version: 0.11.0
+  version: 0.11.3
   pack: valdr-workflow
   source:
     kind: capability
@@ -156,7 +156,7 @@ workflow:
         headAtStart: "$.normalized.child.outputs.headAtStart"
 
     # ---- Review corridor. revise_implementation is skipped on pass one, then
-    # ---- re-prompts the original executor on each requested-changes pass.
+    # ---- re-prompts the original executor on each later pass.
     - key: revise_implementation
       name: Revise implementation
       kind: session
@@ -174,9 +174,12 @@ workflow:
         prompt: |-
           Continue implementing task ${workflow.inputs.taskKey} in this same linked worktree.
           Load the current task and PM review feedback, address every requested change,
-          and keep the implementation within the task's authoritative scope. Leave the
-          changes uncommitted, do not change task status or launch reviewers, and reply
-          with a short summary when the revision is ready.
+          and keep the implementation within the task's authoritative scope. Run the
+          relevant checks and leave changes uncommitted. Do not change task status,
+          commit, or push; this workflow owns those steps. Do not request reviews,
+          contact reviewers, launch sessions, or wait for other agents. Finish after
+          implementing and checking this revision, with a brief summary of changed
+          files, checks, and any blocker. The workflow requests the next review pass.
       waitsFor:
         kind: workflow_input
         expected: [implementation_complete]
@@ -222,9 +225,13 @@ workflow:
       kind: subworkflow
       needs:
         - accept_snapshot
+      when:
+        - kind: value_equals
+          value: "${runtime.loop.currentPass}"
+          equals: 1
       workflow:
         key: valdr-workflow.task.review-all
-        version: 0.2.0
+        version: 0.2.1
       inputs:
         taskKey: "${workflow.inputs.taskKey}"
         assignments: "${steps.load_review.outputs.assignments}"
@@ -234,11 +241,26 @@ workflow:
       outputs:
         children: "$.normalized.child.outputs.children"
 
+    - key: review_existing
+      name: Reuse the original reviewers
+      kind: subworkflow
+      needs: [do_review]
+      when:
+        - kind: value_in
+          value: "${runtime.loop.currentPass}"
+          allowed: [2, 3]
+      workflow: { key: valdr-workflow.task.review-existing, version: 0.1.0 }
+      inputs:
+        taskKey: "${workflow.inputs.taskKey}"
+        sourceSessionUlid: "${steps.do_implement.outputs.sessionUlid}"
+        reviewId: "${steps.load_review.outputs.reviewId}"
+        assignments: "${steps.load_review.outputs.assignments}"
+
     - key: reload_review
       name: Reload aggregate review status
       kind: tool
       needs:
-        - do_review
+        - review_existing
       tool:
         id: pm_review
         action: list

@@ -3,7 +3,7 @@ workflow:
   key: valdr-workflow.sprint.execute
   name: Execute Sprint
   description: Prepare, schedule, and deliver a fixed task set for an existing sprint.
-  version: 0.16.0
+  version: 0.16.3
   pack: valdr-workflow
   source:
     kind: capability
@@ -152,7 +152,7 @@ workflow:
       needs: [validate_schedule]
       workflow:
         key: valdr-workflow.task.deliver-and-closeout
-        version: 0.5.0
+        version: 0.5.3
       inputs:
         routerLauncherConfigKey: "${workflow.inputs.routerLauncherConfigKey}"
         baseRef: "${workflow.inputs.baseRef}"

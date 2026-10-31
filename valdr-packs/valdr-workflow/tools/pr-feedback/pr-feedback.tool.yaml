@@ -1,0 +1,2592 @@
+schemaVersion: 1
+id: valdr-workflow.user.pr-feedback
+revision: 1.2.1
+icon: code-bracket-square
+name: PR Feedback
+description: "Watch a GitHub pull request for owner, member and collaborator feedback and failing checks, decide the next follow-up step, and post marked automation replies. Requires the host-installed gh CLI with authentication."
+files:
+  - path: runner.mjs
+  - path: contract.mjs
+  - path: feedback.mjs
+  - path: github.mjs
+  - path: session.mjs
+  - path: coordination.mjs
+  - path: publish.mjs
+process:
+  executable: node
+  args:
+    - runner.mjs
+  inheritEnv:
+    - GH_TOKEN
+    - GITHUB_TOKEN
+    - GH_ENTERPRISE_TOKEN
+    - GITHUB_ENTERPRISE_TOKEN
+    - GH_HOST
+    - GH_CONFIG_DIR
+limits:
+  timeoutSeconds: 60
+  maxInputBytes: 1048576
+  maxResultBytes: 1048576
+  maxLogBytes: 4096
+actions:
+  - id: identify
+    path:
+      - pull-request
+      - identify
+    name: Identify
+    description: "Confirm a pull request is open and on the expected head branch of the base repository, and return its normalized automation key and resource key. A pull request from a fork is a mismatch, because its head branch cannot be pushed to."
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+        repo:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,100}$"
+        number:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        headBranch:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: \S
+      required:
+        - owner
+        - repo
+        - number
+        - headBranch
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        outcome:
+          enum:
+            - watchable
+            - not_open
+            - mismatch
+        owner:
+          type: string
+        repo:
+          type: string
+        automationKey:
+          type: string
+          maxLength: 200
+        resourceKey:
+          type: string
+        prState:
+          enum:
+            - open
+            - closed
+      required:
+        - outcome
+        - owner
+        - repo
+        - automationKey
+        - resourceKey
+        - prState
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: snapshot
+    path:
+      - pull-request
+      - snapshot
+    name: Snapshot
+    description: "Read the pull request, its qualifying feedback and its check runs, then decide the next step. Returns the decision, the next checkpoint state and a count of qualifying items, never feedback or check content: a dispatched round reads its own content with collect. A round still active more than 8 hours after it was dispatched is reported as stalled, with cancelRound yes. A closed pull request is reported without reading feedback or checks. An absent or empty roundStatus means no round. Optional state.questions holds caller-recorded published questions and allowed answer authors. An unanswered CI question pauses retries only for its recorded head. Merge evidence does not authorize downstream completion."
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+        repo:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,100}$"
+        number:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        state:
+          $ref: "#/$defs/state"
+        roundStatus:
+          enum:
+            - ""
+            - pending
+            - running
+            - waiting
+            - blocked
+            - failed
+            - completed
+            - cancelled
+            - ready_review
+            - ready_revise
+            - ready_publish
+        freshRequestId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: \S
+        hasActive:
+          enum:
+            - "yes"
+            - "no"
+      required:
+        - owner
+        - repo
+        - number
+        - state
+        - freshRequestId
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum:
+            - idle
+            - closed
+            - complete
+            - save
+            - report_failure
+            - dispatch
+            - review
+            - revise
+            - publish
+        cancelRound:
+          type: string
+          enum:
+            - "yes"
+            - "no"
+        prOutcome:
+          enum:
+            - merged
+            - closed
+            - open
+        nextState:
+          $ref: "#/$defs/state"
+        notice:
+          type: string
+        noticeTarget:
+          type: string
+          pattern: "^(notice:[0-9]+)?$"
+        requestId:
+          type: string
+        headSha:
+          type: string
+        prState:
+          enum:
+            - open
+            - closed
+        itemCount:
+          type: integer
+          minimum: 0
+        mergeEvidence:
+          oneOf:
+            - type: "null"
+            - type: object
+              properties:
+                repository:
+                  type: string
+                baseBranch:
+                  type: string
+                headBranch:
+                  type: string
+                headSha:
+                  type: string
+                mergeCommitSha:
+                  type: string
+                mergedAt:
+                  type: string
+              required:
+                - repository
+                - baseBranch
+                - headBranch
+                - headSha
+                - mergeCommitSha
+                - mergedAt
+              additionalProperties: false
+      required:
+        - decision
+        - cancelRound
+        - prOutcome
+        - nextState
+        - notice
+        - noticeTarget
+        - requestId
+        - headSha
+        - prState
+        - itemCount
+        - mergeEvidence
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: collect
+    path:
+      - pull-request
+      - collect
+    name: Collect
+    description: "Read the content of one round: the requested feedback items, in the requested order (items that no longer exist or no longer qualify are absent), and the failing checks for the given head. A body over 4000 characters is cut, with a link to the full text; at most ten failing checks are returned, the first three Actions jobs with a log excerpt of at most 8192 bytes. An empty itemIds list skips the feedback read. A closed pull request can still be read. Optional checkpoint state supplies the published questions answered by this batch. Collected bodies omit hidden comments and control characters; location and thread fields remain available."
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+        repo:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,100}$"
+        number:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        itemIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+        headSha:
+          type: string
+          pattern: "^[0-9a-f]{40}$"
+        state:
+          $ref: "#/$defs/state"
+      required:
+        - owner
+        - repo
+        - number
+        - itemIds
+        - headSha
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        itemIds:
+          type: array
+          items:
+            type: string
+        items:
+          type: array
+          items:
+            $ref: "#/$defs/item"
+        failingChecks:
+          type: array
+          items:
+            $ref: "#/$defs/failingCheck"
+        headSha:
+          type: string
+        questions:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            properties:
+              body:
+                type: string
+              url:
+                type: string
+              answerIds:
+                type: array
+                items:
+                  type: string
+                  pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            required:
+              - body
+              - url
+              - answerIds
+            additionalProperties: false
+      required:
+        - itemIds
+        - items
+        - failingChecks
+        - headSha
+        - questions
+      additionalProperties: false
+      $defs:
+        item:
+          type: object
+          properties:
+            id:
+              type: string
+              pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            kind:
+              enum:
+                - issue_comment
+                - review
+                - review_comment
+            author:
+              type: string
+            body:
+              type: string
+            url:
+              type: string
+            createdAt:
+              type: string
+            path:
+              type: string
+            line:
+              type: integer
+            inReplyTo:
+              type: string
+              pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+          required:
+            - id
+            - kind
+            - author
+            - body
+            - url
+            - createdAt
+          additionalProperties: false
+        failingCheck:
+          type: object
+          properties:
+            name:
+              type: string
+            conclusion:
+              type: string
+            url:
+              type: string
+            logExcerpt:
+              type: string
+          required:
+            - name
+            - conclusion
+            - url
+            - logExcerpt
+          additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: reply
+    path:
+      - pull-request
+      - reply
+    name: Reply
+    description: "Post automation replies to feedback items: a threaded reply on the thread root for an inline review comment (GitHub rejects replies to replies), otherwise a conversation comment that quotes the item. The marker names the item itself. Only markers written by the authenticated account count, so an item that already has its own marked reply is not posted again, and a deleted item is reported as missing. An empty list is a no-op that does not call GitHub. Re-running after an interruption is safe because replies are reconciled by marker. A body that contains an automation marker, a local absolute path or a ULID-shaped token is rejected. When allowedItemIds is given, a reply to any other item fails the whole call before GitHub is contacted. An optional stable target distinguishes separate replies to the same item; reuse it after a lost response."
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+        repo:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,100}$"
+        number:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        replies:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            properties:
+              itemId:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+              body:
+                type: string
+                minLength: 1
+                maxLength: 30000
+                pattern: \S
+                not:
+                  pattern: "<!-- valdr-automation:v1|(^|[\\s\"'`(\\[<=:*_|~]|file://)(/Users/|/home/|/private/var/|/private/tmp/|C:\\\\Users\\\\)|\\b[0-7][0-9A-HJKMNP-TV-Z]{25}\\b"
+              target:
+                type: string
+                pattern: "^(ic|rv|rc|pr|notice):(0|[1-9][0-9]{0,19})$"
+            required:
+              - itemId
+              - body
+            additionalProperties: false
+        allowedItemIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+      required:
+        - owner
+        - repo
+        - number
+        - replies
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              itemId:
+                type: string
+              outcome:
+                enum:
+                  - posted
+                  - existing
+                  - missing
+              url:
+                type: string
+            required:
+              - itemId
+              - outcome
+              - url
+            additionalProperties: false
+      required:
+        - results
+      additionalProperties: false
+    execution: supported
+    sideEffects: write
+    retry: idempotent
+  - id: comment
+    path:
+      - pull-request
+      - comment
+    name: Comment
+    description: "Post one automation comment on the pull request unless a comment by the authenticated account carrying the same marker target already exists. The target is ic:, rv:, rc: or pr: followed by an id, or notice: followed by a counter. A body that contains an automation marker, a local absolute path or a ULID-shaped token is rejected."
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+        repo:
+          type: string
+          pattern: "^[A-Za-z0-9._-]{1,100}$"
+        number:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        target:
+          type: string
+          pattern: "^(ic|rv|rc|pr|notice):(0|[1-9][0-9]{0,19})$"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 30000
+          pattern: \S
+          not:
+            pattern: "<!-- valdr-automation:v1|(^|[\\s\"'`(\\[<=:*_|~]|file://)(/Users/|/home/|/private/var/|/private/tmp/|C:\\\\Users\\\\)|\\b[0-7][0-9A-HJKMNP-TV-Z]{25}\\b"
+      required:
+        - owner
+        - repo
+        - number
+        - target
+        - body
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        outcome:
+          enum:
+            - posted
+            - existing
+        url:
+          type: string
+      required:
+        - outcome
+        - url
+      additionalProperties: false
+    execution: supported
+    sideEffects: write
+    retry: idempotent
+  - id: observe
+    path:
+      - pull-request
+      - observe
+    name: Observe delivery sessions
+    description: Best-effort lifecycle observation of the existing implementation and linked reviewers; no transcript reads.
+    inputSchema:
+      type: object
+      properties:
+        state:
+          $ref: "#/$defs/state"
+        sessions:
+          type: array
+          maxItems: 1000
+          items:
+            type: object
+        implementationSessionUlid:
+          type: string
+        taskKey:
+          type: string
+        review:
+          type: object
+      required:
+        - state
+        - sessions
+        - implementationSessionUlid
+        - taskKey
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        state:
+          $ref: "#/$defs/state"
+        roundStatus:
+          enum:
+            - ""
+            - pending
+            - running
+            - completed
+            - failed
+            - ready_review
+            - ready_revise
+            - ready_publish
+        sessionUlid:
+          type: string
+        hasActive:
+          enum:
+            - "yes"
+            - "no"
+      required:
+        - state
+        - roundStatus
+        - sessionUlid
+        - hasActive
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: review_candidates
+    path:
+      - pull-request
+      - review_candidates
+    name: Select original reviewer sessions
+    description: Select original reviewer sessions
+    inputSchema:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            type: object
+          maxItems: 1000
+        taskKey:
+          type: string
+        implementationSessionUlid:
+          type: string
+      required:
+        - sessions
+        - taskKey
+        - implementationSessionUlid
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        candidates:
+          type: array
+          items:
+            type: object
+            properties:
+              sessionUlid:
+                type: string
+              startedAt:
+                type: number
+            required:
+              - sessionUlid
+              - startedAt
+            additionalProperties: false
+      required:
+        - candidates
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: bind_reviewers
+    path:
+      - pull-request
+      - bind_reviewers
+    name: Match original reviewers to assignments
+    description: Match original reviewers to assignments
+    inputSchema:
+      type: object
+      properties:
+        assignments:
+          type: array
+          items:
+            type: object
+        identities:
+          type: array
+          items:
+            type: object
+      required:
+        - assignments
+        - identities
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        reviewers:
+          type: array
+          items:
+            type: object
+            properties:
+              sessionUlid:
+                type: string
+              assignmentId:
+                type: string
+              reviewerHandle:
+                type: string
+            required:
+              - sessionUlid
+              - assignmentId
+              - reviewerHandle
+            additionalProperties: false
+      required:
+        - reviewers
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: advance
+    path:
+      - pull-request
+      - advance
+    name: Prepare the next feedback stage
+    description: Prepare the next feedback stage
+    inputSchema:
+      type: object
+      properties:
+        state:
+          $ref: "#/$defs/state"
+        phase:
+          enum:
+            - implementing
+            - reviewing
+            - publishing
+            - published
+            - blocked
+        reviewId:
+          type: string
+        reviewers:
+          type: array
+          items:
+            type: object
+            properties:
+              sessionUlid:
+                type: string
+              assignmentId:
+                type: string
+              reviewerHandle:
+                type: string
+            required:
+              - sessionUlid
+              - assignmentId
+              - reviewerHandle
+            additionalProperties: false
+        snapshot:
+          type: object
+        result:
+          type: object
+          properties:
+            status:
+              enum:
+                - implemented
+                - blocked
+            replies:
+              type: array
+              maxItems: 50
+              items:
+                type: object
+                properties:
+                  itemId:
+                    type: string
+                  body:
+                    type: string
+                  target:
+                    type: string
+                required:
+                  - itemId
+                  - body
+                additionalProperties: false
+          required:
+            - status
+            - replies
+          additionalProperties: false
+      required:
+        - state
+        - phase
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        state:
+          $ref: "#/$defs/state"
+      required:
+        - state
+      additionalProperties: false
+      $defs:
+        state:
+          type: object
+          properties:
+            v:
+              const: 1
+            handled:
+              type: array
+              items:
+                type: string
+            floor:
+              type:
+                - string
+                - "null"
+            checkFix:
+              type: object
+              properties:
+                lastSha:
+                  type:
+                    - string
+                    - "null"
+                attempts:
+                  type: integer
+                  minimum: 0
+              required:
+                - lastSha
+                - attempts
+              additionalProperties: false
+            inFlight:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/inFlight"
+            hold:
+              oneOf:
+                - type: "null"
+                - $ref: "#/$defs/hold"
+            notices:
+              type: integer
+              minimum: 0
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+          required:
+            - v
+            - handled
+            - floor
+            - checkFix
+            - inFlight
+            - hold
+          additionalProperties: false
+        inFlight:
+          type: object
+          properties:
+            requestId:
+              type: string
+            runUlid:
+              type: string
+            itemIds:
+              type: array
+              items:
+                type: string
+            headSha:
+              type: string
+            checkFix:
+              type: boolean
+            failureReported:
+              type: boolean
+            dispatchedAt:
+              type: string
+            sessionProgress:
+              type: object
+              properties:
+                cursor:
+                  type: integer
+                  minimum: 0
+                promptSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                startSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalSeq:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                finalText:
+                  type: string
+                  maxLength: 8192
+                terminalStatus:
+                  enum:
+                    - pending
+                    - completed
+                    - failed
+              required:
+                - cursor
+                - promptSeq
+                - startSeq
+                - finalSeq
+                - finalText
+              additionalProperties: false
+            questions:
+              type: array
+              maxItems: 10
+              items:
+                $ref: "#/$defs/question"
+            coordination:
+              type: object
+              properties:
+                phase:
+                  enum:
+                    - implementing
+                    - reviewing
+                    - publishing
+                    - published
+                    - blocked
+                stageAt:
+                  type: string
+                pass:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+                reviewId:
+                  type: string
+                reviewers:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    properties:
+                      sessionUlid:
+                        type: string
+                      assignmentId:
+                        type: string
+                      reviewerHandle:
+                        type: string
+                    required:
+                      - sessionUlid
+                      - assignmentId
+                      - reviewerHandle
+                    additionalProperties: false
+                snapshot:
+                  type: object
+                result:
+                  type: object
+                  properties:
+                    status:
+                      enum:
+                        - implemented
+                        - blocked
+                    replies:
+                      type: array
+                      maxItems: 50
+                      items:
+                        type: object
+                        properties:
+                          itemId:
+                            type: string
+                          body:
+                            type: string
+                          target:
+                            type: string
+                        required:
+                          - itemId
+                          - body
+                        additionalProperties: false
+                  required:
+                    - status
+                    - replies
+                  additionalProperties: false
+              required:
+                - phase
+                - stageAt
+                - pass
+                - reviewId
+                - reviewers
+              additionalProperties: false
+          required:
+            - requestId
+            - itemIds
+            - headSha
+            - checkFix
+            - failureReported
+          additionalProperties: false
+        hold:
+          type: object
+          properties:
+            reason:
+              type: string
+            sinceHeadSha:
+              type: string
+            since:
+              type: string
+          required:
+            - reason
+            - sinceHeadSha
+          additionalProperties: false
+        question:
+          type: object
+          properties:
+            body:
+              type: string
+              minLength: 1
+              maxLength: 1000
+              pattern: \S
+            url:
+              type: string
+              pattern: "^https://[^\\s]+$"
+              maxLength: 2048
+            createdAt:
+              type: string
+            headSha:
+              type: string
+              pattern: "^[0-9a-f]{40}$"
+            itemIds:
+              type: array
+              maxItems: 50
+              items:
+                type: string
+                pattern: "^(ic|rv|rc):(0|[1-9][0-9]{0,19})$"
+            answerAuthors:
+              type: array
+              minItems: 1
+              maxItems: 20
+              items:
+                type: string
+                minLength: 1
+                maxLength: 100
+                pattern: \S
+            checkFix:
+              type: boolean
+            threadRootId:
+              type: string
+              pattern: "^rc:(0|[1-9][0-9]{0,19})$"
+          required:
+            - body
+            - url
+            - createdAt
+            - headSha
+            - itemIds
+            - answerAuthors
+            - checkFix
+          additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: read_result
+    path:
+      - pull-request
+      - read_result
+    name: Read the implementation summary
+    description: Read the implementation summary
+    inputSchema:
+      type: object
+      properties:
+        requestId:
+          type: string
+        itemIds:
+          type: array
+          items:
+            type: string
+          maxItems: 50
+        since:
+          type: string
+      required:
+        - requestId
+        - itemIds
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        result:
+          type: object
+          properties:
+            status:
+              enum:
+                - implemented
+                - blocked
+            replies:
+              type: array
+              maxItems: 50
+              items:
+                type: object
+                properties:
+                  itemId:
+                    type: string
+                  body:
+                    type: string
+                  target:
+                    type: string
+                required:
+                  - itemId
+                  - body
+                additionalProperties: false
+          required:
+            - status
+            - replies
+          additionalProperties: false
+        phase:
+          enum:
+            - reviewing
+            - blocked
+      required:
+        - result
+        - phase
+      additionalProperties: false
+    execution: supported
+    sideEffects: read
+    retry: idempotent
+  - id: publish
+    path:
+      - pull-request
+      - publish
+    name: Publish the exact reviewed changes
+    description: Publish the exact reviewed changes
+    inputSchema:
+      type: object
+      properties:
+        owner:
+          type: string
+        repo:
+          type: string
+        number:
+          type: integer
+          minimum: 1
+        remoteName:
+          type: string
+        headBranch:
+          type: string
+        expectedHeadSha:
+          type: string
+        expectedTreeSha:
+          type: string
+        paths:
+          type: array
+          items:
+            type: string
+          maxItems: 1000
+      required:
+        - owner
+        - repo
+        - number
+        - remoteName
+        - headBranch
+        - expectedHeadSha
+        - expectedTreeSha
+        - paths
+      additionalProperties: false
+    outputSchema:
+      type: object
+      properties:
+        commitSha:
+          type: string
+        changed:
+          type: boolean
+      required:
+        - commitSha
+        - changed
+      additionalProperties: false
+    execution: supported
+    sideEffects: write
+    retry: manual

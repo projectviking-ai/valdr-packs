@@ -104,7 +104,7 @@ jobs:
       - name: Build release archives
         env:
           VALDR_BIN: ${{ steps.valdr.outputs.path }}
-        run: make build-valdr-all test-decision-tools
+        run: make build-valdr-all test-decision-tools test-pr-feedback-tool
 
       - name: Create GitHub Release
         env:

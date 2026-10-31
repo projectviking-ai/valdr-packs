@@ -1,0 +1,254 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.pull-request.reinstall
+  name: Reinstall Pull Request Watch
+  description: "Explicitly reinstall a removed watch for a reopened pull request. Require its selected old activation, reuse its saved definition and sessions, and restore its checkpoint. Ordinary watch starts never recreate removed automations."
+  version: 0.1.1
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.pull-request-reinstall
+  start:
+    mode: manual
+  inputs:
+    automationKey:
+      type: string
+      required: true
+      description: Removed PR watch key returned by pm_automation get.
+    expectedActivationId:
+      type: string
+      required: true
+      description: The removed activation selected for explicit reinstall. A stale or active activation is rejected.
+  outputs:
+    automationKey:
+      type: string
+      required: true
+    activationId:
+      type: string
+      required: true
+  outputMappings:
+    automationKey: "${steps.apply.outputs.key}"
+    activationId: "${steps.apply.outputs.activationId}"
+  steps:
+    - key: rule
+      name: Read the removed watch
+      kind: tool
+      tool:
+        id: pm_automation
+        action: get
+      inputs:
+        params:
+          key: "${workflow.inputs.automationKey}"
+      outputs:
+        definition: $.raw.definition
+        inputs: $.raw.definition.automation.action.inputs
+        actionType: $.raw.definition.automation.action.type
+        workflowKey: $.raw.definition.automation.action.workflow.key
+        activationId: $.raw.activationId
+        status: $.raw.effectiveStatus
+        sourceKind: $.raw.source.kind
+        slotHoldingRun: $.raw.slotHoldingRun
+      onFailure:
+        action: fail
+    - key: accept_removed
+      name: Require the selected removed PR watch
+      kind: condition
+      needs:
+        - rule
+      checks:
+        - kind: value_equals
+          value: "${steps.rule.outputs.status}"
+          equals: removed
+        - kind: value_equals
+          value: "${steps.rule.outputs.activationId}"
+          equals: "${workflow.inputs.expectedActivationId}"
+        - kind: value_equals
+          value: "${steps.rule.outputs.sourceKind}"
+          equals: local
+        - kind: value_equals
+          value: "${steps.rule.outputs.slotHoldingRun}"
+          equals: null
+          allowNull: true
+        - kind: value_equals
+          value: "${steps.rule.outputs.actionType}"
+          equals: workflow.start
+        - kind: value_equals
+          value: "${steps.rule.outputs.workflowKey}"
+          equals: valdr-workflow.pull-request.check
+        - kind: value_equals
+          value: "${steps.rule.outputs.inputs.automationKey}"
+          equals: "${workflow.inputs.automationKey}"
+      outputs:
+        reason: Reinstall requires the selected removed local PR watch with no running check.
+      onFailure:
+        action: fail
+    - key: identify
+      name: Identify the pull request
+      kind: tool
+      needs:
+        - accept_removed
+      tool:
+        id: valdr-workflow.user.pr-feedback
+        action: identify
+        revision: 1.2.1
+        contentHash: sha256:a0bbaf0ae533ca632dd2b371977ac922b9d187bd12688ab9167bd4409e72e2a1
+        inputSchema:
+          type: object
+          properties:
+            owner:
+              type: string
+              pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,38}$"
+            repo:
+              type: string
+              pattern: "^[A-Za-z0-9._-]{1,100}$"
+            number:
+              type: integer
+              minimum: 1
+              maximum: 9007199254740991
+            headBranch:
+              type: string
+              minLength: 1
+              maxLength: 255
+              pattern: \S
+          required:
+            - owner
+            - repo
+            - number
+            - headBranch
+          additionalProperties: false
+        outputSchema:
+          type: object
+          properties:
+            outcome:
+              enum:
+                - watchable
+                - not_open
+                - mismatch
+            owner:
+              type: string
+            repo:
+              type: string
+            automationKey:
+              type: string
+              maxLength: 200
+            resourceKey:
+              type: string
+            prState:
+              enum:
+                - open
+                - closed
+          required:
+            - outcome
+            - owner
+            - repo
+            - automationKey
+            - resourceKey
+            - prState
+          additionalProperties: false
+      inputs:
+        owner: "${steps.rule.outputs.inputs.owner}"
+        repo: "${steps.rule.outputs.inputs.repo}"
+        number: "${steps.rule.outputs.inputs.prNumber}"
+        headBranch: "${steps.rule.outputs.inputs.headBranch}"
+      outputs:
+        outcome: $.normalized.data.outcome
+        owner: $.normalized.data.owner
+        repo: $.normalized.data.repo
+        automationKey: $.normalized.data.automationKey
+        resourceKey: $.normalized.data.resourceKey
+      onFailure:
+        action: fail
+    - key: accept_open
+      name: Require the original pull request to be open
+      kind: condition
+      needs:
+        - identify
+      checks:
+        - kind: value_equals
+          value: "${steps.identify.outputs.outcome}"
+          equals: watchable
+        - kind: value_equals
+          value: "${steps.identify.outputs.automationKey}"
+          equals: "${workflow.inputs.automationKey}"
+      outputs:
+        reason: The original pull request must be open on its recorded head branch.
+      onFailure:
+        action: fail
+    - key: state
+      name: Read the previous checkpoint
+      kind: tool
+      needs:
+        - accept_open
+      tool:
+        id: pm_automation
+        action: get_state
+      inputs:
+        params:
+          key: "${workflow.inputs.automationKey}"
+          expectedActivationId: "${workflow.inputs.expectedActivationId}"
+      outputs:
+        state: $.raw.state
+      onFailure:
+        action: fail
+    - key: apply_id
+      name: Generate the reinstall request id
+      kind: tool
+      needs:
+        - state
+      tool:
+        id: pm_generate_ulid
+        action: call
+      inputs: {}
+      outputs:
+        ulid: $.raw.ulid
+      onFailure:
+        action: fail
+    - key: apply
+      name: Explicitly reinstall the selected watch
+      kind: tool
+      needs:
+        - apply_id
+      tool:
+        id: pm_automation
+        action: apply
+      inputs:
+        params:
+          clientRequestId: "${steps.apply_id.outputs.ulid}"
+          definition: "${steps.rule.outputs.definition}"
+          recreate: true
+          expectedActivationId: "${workflow.inputs.expectedActivationId}"
+      outputs:
+        key: $.raw.key
+        activationId: $.raw.activationId
+      onFailure:
+        action: fail
+    - key: restore_id
+      name: Generate the checkpoint request id
+      kind: tool
+      needs:
+        - apply
+      tool:
+        id: pm_generate_ulid
+        action: call
+      inputs: {}
+      outputs:
+        ulid: $.raw.ulid
+      onFailure:
+        action: fail
+    - key: restore
+      name: Restore the previous checkpoint
+      kind: tool
+      needs:
+        - restore_id
+      tool:
+        id: pm_automation
+        action: checkpoint
+      inputs:
+        params:
+          key: "${steps.apply.outputs.key}"
+          expectedActivationId: "${steps.apply.outputs.activationId}"
+          expectedStateVersion: 0
+          clientRequestId: "${steps.restore_id.outputs.ulid}"
+          state: "${steps.state.outputs.state}"
+      onFailure:
+        action: fail

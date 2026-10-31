@@ -1,0 +1,60 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.task.send-review
+  name: Send Existing Reviewer One Review
+  description: Reset an assignment and send a detached fresh review to its original session; the watch observes completion.
+  version: 0.1.1
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-send-review
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+    sourceSessionUlid:
+      type: string
+      required: true
+    reviewId:
+      type: string
+      required: true
+    reviewer:
+      type: object
+      required: true
+  outputs: {}
+  outputMappings: {}
+  steps:
+    - key: reset
+      name: Reset the existing assignment
+      kind: tool
+      tool:
+        id: pm_review
+        action: update_assignment
+      inputs:
+        reviewId: "${workflow.inputs.reviewId}"
+        assignmentId: "${workflow.inputs.reviewer.assignmentId}"
+        status: pending
+        actorHandle: "${runtime.actor}"
+      onFailure:
+        action: fail
+    - key: review
+      name: Review in the same session
+      kind: session
+      needs:
+        - reset
+      session:
+        action: input
+        sessionUlid: "${workflow.inputs.reviewer.sessionUlid}"
+        expectAgentHandle: "${workflow.inputs.reviewer.reviewerHandle}"
+        expectTaskKey: "${workflow.inputs.taskKey}"
+        reviewPublication:
+          taskKey: "${workflow.inputs.taskKey}"
+          reviewId: "${workflow.inputs.reviewId}"
+          assignmentId: "${workflow.inputs.reviewer.assignmentId}"
+          sourceSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+        prompt: "Review the current changes for task ${workflow.inputs.taskKey} in the existing implementation worktree.\nUse reviewId ${workflow.inputs.reviewId} and assignmentId ${workflow.inputs.reviewer.assignmentId}.\nPublish exactly one fresh PM review decision on this revision, with a numeric score and concise findings.\nDo not send a message or pm_session input to the implementation session, request another review,\nlaunch sessions, change task status, edit files, commit, or push. This workflow owns coordination\nand will send any requested changes to the existing implementation session.\nFinish after publishing your decision; do not wait for the implementer."
+      onFailure:
+        action: fail
+      detached: true

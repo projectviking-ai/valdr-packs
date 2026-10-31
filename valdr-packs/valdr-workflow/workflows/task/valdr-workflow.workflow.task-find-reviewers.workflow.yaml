@@ -1,0 +1,169 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.task.find-reviewers
+  name: Find Existing Task Reviewers
+  description: Match every staffed assignment to an existing reviewer session for this implementation. Missing sessions fail instead of launching replacements.
+  version: 0.1.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-find-reviewers
+  start:
+    mode: manual
+  inputs:
+    taskKey:
+      type: string
+      required: true
+    sourceSessionUlid:
+      type: string
+      required: true
+    reviewId:
+      type: string
+      required: true
+    assignments:
+      type: array
+      required: true
+  outputs:
+    reviewers:
+      type: array
+      required: true
+  outputMappings:
+    reviewers: "${steps.bind.outputs.reviewers}"
+  steps:
+    - key: sessions
+      name: Read existing task sessions
+      kind: tool
+      tool:
+        id: pm_session
+        action: list
+      inputs:
+        contextRef: "TASK-${workflow.inputs.taskKey}"
+        limit: 1000
+      outputs:
+        sessions: $.raw.sessions
+      onFailure:
+        action: fail
+    - key: candidates
+      name: Select original reviewer sessions
+      kind: tool
+      needs:
+        - sessions
+      tool:
+        id: valdr-workflow.user.pr-feedback
+        action: review_candidates
+        revision: 1.2.1
+        contentHash: sha256:a0bbaf0ae533ca632dd2b371977ac922b9d187bd12688ab9167bd4409e72e2a1
+        inputSchema:
+          type: object
+          properties:
+            sessions:
+              type: array
+              items:
+                type: object
+              maxItems: 1000
+            taskKey:
+              type: string
+            implementationSessionUlid:
+              type: string
+          required:
+            - sessions
+            - taskKey
+            - implementationSessionUlid
+          additionalProperties: false
+        outputSchema:
+          type: object
+          properties:
+            candidates:
+              type: array
+              items:
+                type: object
+                properties:
+                  sessionUlid:
+                    type: string
+                  startedAt:
+                    type: number
+                required:
+                  - sessionUlid
+                  - startedAt
+                additionalProperties: false
+          required:
+            - candidates
+          additionalProperties: false
+      inputs:
+        sessions: "${steps.sessions.outputs.sessions}"
+        taskKey: "${workflow.inputs.taskKey}"
+        implementationSessionUlid: "${workflow.inputs.sourceSessionUlid}"
+      outputs:
+        candidates: $.normalized.data.candidates
+      onFailure:
+        action: fail
+    - key: identities
+      name: Read reviewer identities
+      kind: subworkflow
+      needs:
+        - candidates
+      workflow:
+        key: valdr-workflow.task.session-identity
+        version: 0.1.0
+      forEach:
+        items: "${steps.candidates.outputs.candidates}"
+        itemName: candidate
+        maxConcurrent: 1
+      outputs:
+        children: $.normalized.children
+      onFailure:
+        action: fail
+    - key: bind
+      name: Match all staffed reviewers
+      kind: tool
+      needs:
+        - identities
+      tool:
+        id: valdr-workflow.user.pr-feedback
+        action: bind_reviewers
+        revision: 1.2.1
+        contentHash: sha256:a0bbaf0ae533ca632dd2b371977ac922b9d187bd12688ab9167bd4409e72e2a1
+        inputSchema:
+          type: object
+          properties:
+            assignments:
+              type: array
+              items:
+                type: object
+            identities:
+              type: array
+              items:
+                type: object
+          required:
+            - assignments
+            - identities
+          additionalProperties: false
+        outputSchema:
+          type: object
+          properties:
+            reviewers:
+              type: array
+              items:
+                type: object
+                properties:
+                  sessionUlid:
+                    type: string
+                  assignmentId:
+                    type: string
+                  reviewerHandle:
+                    type: string
+                required:
+                  - sessionUlid
+                  - assignmentId
+                  - reviewerHandle
+                additionalProperties: false
+          required:
+            - reviewers
+          additionalProperties: false
+      inputs:
+        assignments: "${workflow.inputs.assignments}"
+        identities: "${steps.identities.outputs.children}"
+      outputs:
+        reviewers: $.normalized.data.reviewers
+      onFailure:
+        action: fail

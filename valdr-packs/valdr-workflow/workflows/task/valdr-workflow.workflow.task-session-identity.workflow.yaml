@@ -1,0 +1,43 @@
+schemaVersion: 1
+workflow:
+  key: valdr-workflow.task.session-identity
+  name: Read Existing Session Identity
+  description: "Read one existing review session's configured identity without starting a turn."
+  version: 0.1.0
+  pack: valdr-workflow
+  source:
+    kind: capability
+    capabilityKey: valdr-workflow.workflow.task-session-identity
+  start:
+    mode: manual
+  inputs:
+    candidate:
+      type: object
+      required: true
+  outputs:
+    sessionUlid:
+      type: string
+      required: true
+    startedAt:
+      type: number
+      required: true
+    config:
+      type: object
+      required: true
+  outputMappings:
+    sessionUlid: "${workflow.inputs.candidate.sessionUlid}"
+    startedAt: "${workflow.inputs.candidate.startedAt}"
+    config: "${steps.config.outputs.config}"
+  steps:
+    - key: config
+      name: Read session identity
+      kind: tool
+      tool:
+        id: pm_session
+        action: config
+      inputs:
+        sessionUlid: "${workflow.inputs.candidate.sessionUlid}"
+      outputs:
+        config: $.raw.config
+      onFailure:
+        action: fail
