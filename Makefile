@@ -4,7 +4,7 @@ VALDR_BIN ?= valdr
 PACK_VALDR_BIN ?= $(VALDR_BIN)
 VALDR_WORKFLOW_CLI_VERSION := $(strip $(shell cat VALDR_WORKFLOW_CLI_VERSION))
 
-SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/discover-cli.test.mjs scripts/sync-skills.test.mjs scripts/human-gate-reference.test.mjs scripts/pr-watch-workflow.test.mjs
+SCRIPT_TESTS := node --test scripts/lib/version.test.mjs scripts/bump-version.test.mjs scripts/lib/validate-pack.test.mjs scripts/build-valdr-tier.test.mjs scripts/release-workflow.test.mjs scripts/user-workflow-cli-tools.test.mjs scripts/user-workflow-maven.test.mjs scripts/discover-cli.test.mjs scripts/sync-skills.test.mjs scripts/plugin-packaging.test.mjs scripts/human-gate-reference.test.mjs scripts/pr-watch-workflow.test.mjs
 
 .PHONY: test-evals-integration check-evals-readiness test-evals check-evals validate-user-workflow-tools build-valdr-tools test-user-workflow-tools test-decision-tools test-pr-feedback-tool help sync-all sync-skills sync-skills-all sync-skills-agent sync-skills-claude sync-skills-codex sync-skills-gemini validate-valdr-pack check-valdr-workflow-cli validate-valdr-workflow test-scripts ci-validate generate-valdr-pack build-valdr-raider build-valdr-vanguard build-valdr-sovereign build-valdr-workflow build-valdr-all
 

@@ -1,6 +1,7 @@
 /.idea
 /.claude/
 /.agents/*
+!/.agents/plugins/
 !/.agents/skills/
 /.agents/skills/*
 !/.agents/skills/valdr-evals/

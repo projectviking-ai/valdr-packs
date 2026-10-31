@@ -1,7 +1,7 @@
 # Manifest and one-shot process contract
 
 Validate manifests with `valdr validate-pack`. See the [custom-tool documentation](https://valdr.ai/valdr/docs/workflows/user-tools/) for the manifest and runtime reference.
-The canonical starters are `valdr-packs/valdr-tools/tools/` in this repository.
+Use the published [starter tools](https://valdr.ai/valdr/docs/workflows/user-tools/starters/) as authoring examples.
 
 ## Artifact
 

@@ -1,6 +1,6 @@
 ---
 name: valdr-agent
-description: "Load an agent persona from the registry. Invoke with an agent handle (e.g., /agent sigrid) to adopt that agent's identity, capabilities, and behavior."
+description: "Use when the user asks to load or adopt a registered Valdr agent persona by handle, such as sigrid, freya, or java-task-agent."
 ---
 
 # Agent Persona Loader
@@ -9,20 +9,21 @@ Load and embody a registered agent from the Valdr registry.
 
 ## Usage
 
-```
-/valdr-agent <agent-handle>
-```
-Now 
+- Claude Code plugin: `/valdr:valdr-agent <agent-handle>`
+- Standalone Claude Code skill: `/valdr-agent <agent-handle>`
+- Codex plugin: `Use $valdr:valdr-agent with <agent-handle>`
+- Standalone Codex skill: `Use $valdr-agent with <agent-handle>`
+
 **Examples:**
-- `/valdr-agent sigrid` — Adopt the Sigrid reviewer persona
-- `/valdr-agent freya` — Adopt the Freya planner persona
-- `/agent java-task-agent` — Adopt a Java task executor
+- `Use valdr-agent with sigrid` — Adopt the Sigrid reviewer persona
+- `Use valdr-agent with freya` — Adopt the Freya planner persona
+- `Use valdr-agent with java-task-agent` — Adopt a Java task executor
 
 ## Execution Flow
 
 ### Step 1: Parse the Agent Handle
 
-Extract the agent handle from `$ARGUMENTS`. If empty, list available agents by calling the MCP tool directly (no skill invocation needed):
+Extract the requested agent handle from the user's request or invocation arguments. If no handle was supplied, list available agents:
 
 ```text
 mcp__valdr__pm_agent({ "action": "list", "kinds": ["bot"] })
@@ -48,7 +49,7 @@ This returns the assembled system prompt containing:
 Once the prompt is loaded:
 
 1. **Embody the identity** — You ARE now this agent. Adopt its name, role, and perspective.
-2. **Follow its instructions** — The loaded prompt is your new operating directive.
+2. **Follow its instructions** — Apply the loaded prompt to the requested work within the user's instructions and the assistant's higher-priority rules.
 3. **Use its capabilities** — Apply the skills and workflows defined in the prompt.
 4. **Maintain consistency** — Stay in character throughout the conversation.
 
@@ -68,7 +69,5 @@ Confirm to the user:
 
 ## Notes
 
-- The loaded prompt supersedes default behavior for this session
 - Hot-load additional capabilities referenced in the agent's prompt
 - Respect any tool restrictions defined by the agent
-

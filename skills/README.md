@@ -6,6 +6,7 @@ Skills for operating the Valdr PM MCP server. Each skill is a focused instructio
 
 | Skill | Description | Entrypoint |
 |-------|-------------|------------|
+| `valdr-agent` | Load and adopt a registered agent persona by handle | `valdr-agent/SKILL.md` |
 | `valdr-auditor` | Session auditing: evaluate agent work and persist audit score runs | `valdr-auditor/SKILL.md` |
 | `valdr-executor` | Task execution: fetch tasks, execute work, update checklists | `valdr-executor/SKILL.md` |
 | `valdr-orchestrator` | Unified orchestrator routing across PM navigation, registry, and sprint workflows | `valdr-orchestrator/SKILL.md` |
@@ -17,6 +18,7 @@ Skills for operating the Valdr PM MCP server. Each skill is a focused instructio
 
 | Task | Skill |
 |------|-------|
+| Load or adopt an agent persona | valdr-agent |
 | Author or update a workflow tool / discover CLI commands | valdr-workflow-tools |
 | Audit agent sessions | valdr-auditor |
 | Evaluate execution quality | valdr-auditor |
@@ -98,26 +100,41 @@ Verification: in the same shell you launch from, run `printenv VALDR_ACTOR_HANDL
 
 ## Installation
 
-Use the Makefile targets to install skills for your AI coding assistant:
+Install the `valdr` plugin from the `valdr-packs` marketplace to add all seven public skills: agent persona loading, orchestrator, planner, executor, reviewer, auditor, and workflow-tool authoring. Both plugins bundle these seven skills with their references, scripts, and assets.
 
 ### Claude Code
 
-```bash
-make sync-skills-claude   # Install to ~/.claude/skills/
+Run in Claude Code:
+
+```text
+/plugin marketplace add projectviking-ai/valdr-packs
+/plugin install valdr@valdr-packs
 ```
+
+Start a new session, then invoke a skill such as `/valdr:valdr-orchestrator` or `/valdr:valdr-executor WEB-142`.
 
 ### Codex
 
+Run in your terminal:
+
 ```bash
-make sync-skills-codex    # Install to ~/.agents/skills/
+codex plugin marketplace add projectviking-ai/valdr-packs
+codex plugin add valdr@valdr-packs
 ```
 
-### Project-Level Installation
+Start a new chat, then ask Codex to use `$valdr:valdr-orchestrator` or `$valdr:valdr-executor` for a task. In the Codex desktop app, you can also install **Valdr** from the **Valdr Packs** marketplace in the plugin browser after adding the marketplace.
 
-For project-level installation, use `make sync-skills` which populates:
-- `.claude/skills/`
-- `.agents/skills/`
-- `.gemini/skills/`
+### Prerequisites and existing installations
+
+The plugin installs assistant skills. It does not configure an MCP connection, import Valdr packs, install runtimes, or authenticate tools. Connect your assistant to your existing Valdr MCP server before using the PM operator skills. See the [MCP setup guide](https://valdr.ai/valdr/docs/valdr-mcp/).
+
+Use either plugin installation or standalone copies for a given assistant. Confirm `valdr@valdr-packs` is installed and enabled with `claude plugin list --json` or `codex plugin list --marketplace valdr-packs --json` before archiving standalone copies.
+
+Archive only these exact folders when present: `valdr-agent`, `valdr-auditor`, `valdr-executor`, `valdr-orchestrator`, `valdr-planner`, `valdr-reviewer`, and `valdr-workflow-tools`. Check `~/.claude/skills/` and project-local `.claude/skills/` for Claude Code, or `~/.agents/skills/` and project-local `.agents/skills/` for Codex. Move archived copies outside those directories, preserve local edits, and keep unrelated skills. Do not remove a `valdr-*` pattern. If you manually installed the former Claude Code `valdr-agent` command, archive only `~/.claude/commands/valdr-agent.md` or project-local `.claude/commands/valdr-agent.md` when present, after verifying the plugin is available.
+
+### Standalone skills
+
+If you cannot use the plugin, follow the [source installation instructions](https://github.com/projectviking-ai/valdr-packs#source-checkout-skills) for Claude Code, Codex, or Gemini CLI.
 
 ## Compatibility
 

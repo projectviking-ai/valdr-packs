@@ -4,8 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-const usage = 'Usage: bun skills/valdr-workflow-tools/scripts/discover-cli.mjs <gh|aws|gcloud|acli> <output-directory>';
+import { pathToFileURL } from 'node:url';
+const usage = 'Usage: bun <skill-directory>/scripts/discover-cli.mjs <gh|aws|gcloud|acli> <output-directory> <tool-manifest>';
 
 export function parseGhReference(text) {
   const commands = [];
@@ -61,8 +61,8 @@ function executable(name) {
   throw new Error(`${name} is not installed on PATH.`);
 }
 
-export function discover(cli, output) {
-  if (!['gh', 'aws', 'gcloud', 'acli'].includes(cli) || !output) throw new Error(usage);
+export function discover(cli, output, manifestFile) {
+  if (!['gh', 'aws', 'gcloud', 'acli'].includes(cli) || !output || !manifestFile) throw new Error(usage);
   const binary = executable(cli);
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'valdr-cli-discovery-'));
   const env = { ...process.env, NO_COLOR: '1', PAGER: 'cat', GH_PAGER: 'cat', GH_PROMPT_DISABLED: '1', GH_NO_UPDATE_NOTIFIER: '1', GH_NO_EXTENSION_UPDATE_NOTIFIER: '1',
@@ -169,8 +169,7 @@ print(json.dumps({'commands':rows,'failures':failures}))
       }
       gaps.push('Optional components, plugins, hidden/track aliases and source candidates require separate availability checks; no component installs were attempted.');
     }
-    const packRoot = fileURLToPath(new URL('../../../', import.meta.url));
-    const manifest = Bun.YAML.parse(fs.readFileSync(path.join(packRoot, `valdr-packs/valdr-tools/tools/${cli}/${cli}.tool.yaml`), 'utf8'));
+    const manifest = Bun.YAML.parse(fs.readFileSync(manifestFile, 'utf8'));
     commands = classify(commands, manifest);
     const inventory = { schemaVersion: 1, cli, version, executable: { name: cli, sha256: createHash('sha256').update(fs.readFileSync(binary)).digest('hex') },
       capturedAt: new Date().toISOString(), method, toolId: manifest.id, toolRevision: manifest.revision, commands };
@@ -190,7 +189,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     if (process.argv.length === 3 && process.argv[2] === '--help') console.log(usage);
     else {
-      if (process.argv.length !== 4) throw new Error(usage);
+      if (process.argv.length !== 5) throw new Error(usage);
       console.log(JSON.stringify(discover(...process.argv.slice(2)), null, 2));
     }
   }

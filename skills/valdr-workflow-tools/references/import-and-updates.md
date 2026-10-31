@@ -1,16 +1,6 @@
 # Validate, import, run, update
 
-With a compatible Valdr CLI installed, run from the public `valdr-packs` checkout:
-
-```sh
-make validate-user-workflow-tools
-make test-user-workflow-tools
-make build-valdr-tools
-```
-
-The tests require Bun, Node, Python 3, POSIX `sh`, `jq`, and Go. Set `VALDR_BIN=/path/to/valdr` on the `make` command if your installed Valdr executable is not on `PATH`.
-
-For another authored pack with a compatible released CLI:
+Validate and package your maintained source with a compatible Valdr CLI:
 
 ```sh
 valdr validate-pack path/to/my-pack
@@ -23,7 +13,7 @@ Use a compatible Valdr CLI on the import host as well; older clients cannot impo
 
 On servers exposing `pm_user_tool`, agents can also call `help`, then `search` and `describe`, and invoke an authorized action without a workflow. Hot-load `valdr.core.tools.pm-user-tool` for the direct invocation contract. Gateway schemas omit `contentHash`; use the Builder/catalog for the complete workflow pin described below.
 
-Import `build/valdr-tools.valdr-pack.tar.gz` in **Settings → Valdr Packs**. Review preflight
+Import `build/my-pack.valdr-pack.tar.gz` in **Settings → Valdr Packs**. Review preflight
 and commit the import. Manage installed tools under **Workflows → Tools**, the tab after
 **Runs**; **Import or export packs** links back to Settings. Import never installs dependencies,
 compiles native code, logs in or executes entrypoints.
