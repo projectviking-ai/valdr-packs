@@ -62,6 +62,10 @@ prompts:
 - `prompts[].key`: prompt key from `<!--<prompt key="...">-->` tags.
 - `prompts[].hot-load`: if true, prompt is not loaded by default.
 
+## External capability and prompt references
+
+An agent may reference a capability or prompt supplied by another installed pack. Preserve the stable key and reference; do not copy valid provider content into the consuming pack. At import, installed providers satisfy references. A required destination entity that is still missing continues to block import under the existing dependency rules. A pack or actor name does not grant runtime permission.
+
 ## Capability Roles
 
 Allowed roles:

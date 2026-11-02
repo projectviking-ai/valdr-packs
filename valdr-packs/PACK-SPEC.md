@@ -62,6 +62,12 @@ includes:
   - `<!--<prompt key="..." pack="..." role="..." tags="tag-a,tag-b">-->`
 - `pack.yaml` must **not** enumerate every agent/capability/prompt.
 
+### Automation declarations and provider references
+
+Source-ready automation support discovers `*.automation.yaml` and `*.automation.yml` declarations beneath included paths. A compatible Valdr authority validates declarations against its own event catalog and installed targets; the pack archive does not grant event availability or runtime authority. Event catalog entries, including session entries, can be unavailable. Check the destination authority before use. This source documentation does not claim that any particular release includes this support.
+
+Automation declarations may reference workflows or user tools supplied by another pack. Valid external provider files do not need to be copied into the consuming pack. The destination resolves those references against installed providers. A missing required destination entity continues to block import under the existing dependency rules. Capability and backing-prompt references also remain references; preserve their keys and headers rather than copying provider content.
+
 ### Capability Category
 
 - Capability markdown may include an optional `category` attribute.

@@ -83,7 +83,7 @@ For tool-specific documentation when parameters or behavior are unclear:
 pm_capability { action: "prompt", key: "valdr.core.tools.<tool-name>" }
 ```
 
-Available: `pm-project`, `pm-task`, `pm-sprint`, `pm-review`, `pm-agent`, `pm-prompt`, `pm-capability`, `pm-session`, `vmp`, `pm-generate-ulid`.
+Available: `pm-project`, `pm-task`, `pm-sprint`, `pm-review`, `pm-agent`, `pm-prompt`, `pm-capability`, `pm-session`, `pm-automation`, `vmp`, `pm-generate-ulid`.
 
 ## Hot-Loading Mechanics
 
@@ -120,6 +120,7 @@ Do not pre-load workflows speculatively. Load the next one when the current work
 | `pm_prompt` | Prompt registry |
 | `pm_capability` | Capability registry, hot-load prompts |
 | `pm_session` | Session management, task launching |
+| `pm_automation` | Schedule and event automation discovery, preview, and management |
 | `vmp` | Plan creation, listing |
 | `pm_generate_ulid` | Generate unique IDs for mutations |
 
