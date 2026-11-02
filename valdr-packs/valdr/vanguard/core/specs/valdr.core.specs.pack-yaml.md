@@ -63,6 +63,12 @@ includes:
   - `<!--<prompt key="..." pack="..." role="..." tags="tag-a,tag-b">-->`
 - `pack.yaml` does not enumerate entities directly.
 
+### Automation declarations and provider references
+
+Source-ready automation support discovers `*.automation.yaml` and `*.automation.yml` declarations beneath included paths. The destination Valdr authority validates event and target availability; a pack does not grant either. Check the running authority's catalog. These instructions do not claim release availability.
+
+An automation may reference a workflow or user tool supplied by another installed pack. Do not copy valid external provider files into the consuming pack. The destination resolves installed providers. A missing required destination entity still blocks import under existing dependency rules. Preserve capability and backing-prompt references by stable key.
+
 ## Validation Rules
 
 - `pack` is lowercase and stable across releases.
